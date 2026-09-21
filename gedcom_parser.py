@@ -23,14 +23,51 @@ def parseLines(line):
     return level, tag, isValid, args
 
 def parser(path):
+    individuals = {}
+    families = {}
+    current = None
+    dateContext = None
+
     with open(path, encoding='utf-8') as f:
         for raw in f:
             theLine = raw.rstrip('\r\n')
             if not theLine.strip():
                 continue
+
             print(f'--> {theLine}')
             level, tag, isValid, args = parseLines(theLine)
             print(f'<-- {level}|{tag}|{isValid}|{args}')
 
+            if level == '0' and tag == 'INDI':
+                current = {'id': args, 'name': None, 'sex': None,
+                           'birth': None, 'death': None}
+                individuals[args] = current
+                dateContext = None
+            elif level == '0' and tag == 'FAM':
+                current = {'id': args, 'married': None, 'divorced': None,
+                           'husband': None, 'wife': None, 'children': []}
+                families[args] = current
+                dateContext = None
+            elif level == '0':
+                current = None
+                dateContext = None
+            elif level == '1' and current is not None:
+                if tag == 'NAME':   current['name'] = args
+                elif tag == 'SEX':  current['sex'] = args
+                elif tag == 'HUSB': current['husband'] = args
+                elif tag == 'WIFE': current['wife'] = args
+                elif tag == 'CHIL': current['children'].append(args)
+                elif tag in ('BIRT', 'DEAT', 'MARR', 'DIV'):
+                    dateContext = tag
+                else:
+                    dateContext = None
+            elif level == '2' and tag == 'DATE' and current is not None:
+                if dateContext == 'BIRT':   current['birth'] = args
+                elif dateContext == 'DEAT': current['death'] = args
+                elif dateContext == 'MARR': current['married'] = args
+                elif dateContext == 'DIV':  current['divorced'] = args
+
+    return individuals, families
+
 if __name__ == '__main__':
-    parser('JonesThompsonFamily.ged')
+    individuals, families = parser('JonesThompsonFamily-1.ged')
