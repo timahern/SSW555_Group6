@@ -69,5 +69,42 @@ def parser(path):
 
     return individuals, families
 
+def idSortKey(id):
+    num = ''.join(c for c in id if c.isdigit())
+    return int(num) if num else id
+
+def displayId(raw):
+    s = raw.strip('@')
+    letters = ''.join(c for c in s if not c.isdigit())
+    num = ''.join(c for c in s if c.isdigit())
+    if num:
+        return letters + num.zfill(2)
+    return s
+
+def printIndividuals(individuals):
+    print()
+    print('Individuals')
+    print()
+    print(f"{'ID':<4}  {'Name'}")
+    for rawId in sorted(individuals.keys(), key=idSortKey):
+        p = individuals[rawId]
+        print(f"{displayId(rawId):<4}  {p['name'] or 'NA'}")
+
+def printFamilies(individuals, families):
+    print()
+    print('Families')
+    print()
+    print(f"{'Family ID':<10}  {'Spouse ID':<10}  {'Spouse Name'}")
+    for famId in sorted(families.keys(), key=idSortKey):
+        fam = families[famId]
+        if fam['husband']:
+            husb = individuals.get(fam['husband'], {})
+            print(f"{displayId(famId):<10}  {displayId(fam['husband']):<10}  {husb.get('name') or 'NA'}")
+        if fam['wife']:
+            wife = individuals.get(fam['wife'], {})
+            print(f"{displayId(famId):<10}  {displayId(fam['wife']):<10}  {wife.get('name') or 'NA'}")
+
 if __name__ == '__main__':
     individuals, families = parser('JonesThompsonFamily-1.ged')
+    printIndividuals(individuals)
+    printFamilies(individuals, families)
