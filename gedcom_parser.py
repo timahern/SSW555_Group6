@@ -87,15 +87,43 @@ def displayId(raw):
     return s
 
 def parseGedDate(gedDate):
+    # Accept full dates (DD MON YYYY), month-year (MON YYYY), or year-only (YYYY)
+    # For partial dates, default the missing components to the first day/month so
+    # downstream age calculations and ISO formatting can still operate.
     if not gedDate or gedDate == 'Y':
         return None
     parts = gedDate.split()
-    if len(parts) != 3:
+    # Normalize and validate by arity
+    if len(parts) == 3:
+        day_str, mon_str, year_str = parts
+        if mon_str not in MONTHS:
+            return None
+        try:
+            day = int(day_str)
+            year = int(year_str)
+        except ValueError:
+            return None
+        return date(year, MONTHS[mon_str], day)
+    elif len(parts) == 2:
+        mon_str, year_str = parts
+        if mon_str not in MONTHS:
+            return None
+        try:
+            year = int(year_str)
+        except ValueError:
+            return None
+        # Default to first day of the month
+        return date(year, MONTHS[mon_str], 1)
+    elif len(parts) == 1:
+        year_str = parts[0]
+        try:
+            year = int(year_str)
+        except ValueError:
+            return None
+        # Default to Jan 1st for year-only
+        return date(year, 1, 1)
+    else:
         return None
-    day, mon, year = parts
-    if mon not in MONTHS:
-        return None
-    return date(int(year), MONTHS[mon], int(day))
 
 def formatGedDate(gedDate):
     d = parseGedDate(gedDate)
