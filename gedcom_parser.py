@@ -37,9 +37,9 @@ def parser(path):
             if not theLine.strip():
                 continue
 
-            print(f'--> {theLine}')
+            # print(f'--> {theLine}')
             level, tag, isValid, args = parseLines(theLine)
-            print(f'<-- {level}|{tag}|{isValid}|{args}')
+            # print(f'<-- {level}|{tag}|{isValid}|{args}')
 
             if level == '0' and tag == 'INDI':
                 current = {'id': args, 'name': None, 'sex': None,
