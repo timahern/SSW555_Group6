@@ -282,14 +282,22 @@ def validate_gedcom_lines(lines: Iterable[str]):
                 close_entity(i - 1)
             if tag == 'INDI':
                 current_type = 'INDI'
-                current = {'id': args, 'name': None, 'sex': None, 'birth': None, 'death': None, 'famc': [], 'fams': []}
-                individuals[args] = current
+                current = {'id': args, 'name': None, 'sex': None, 'birth': None, 'death': None, 'famc': [], 'fams': [], 'line': i}
+                #US 18 edit
+                if args in individuals:
+                    errors.append(ValidationError(i, 'US18', f'Duplicate individual ID {args!r}'))
+                else:
+                    individuals[args] = current
                 date_context = None
                 current_entity_start_line = i
             elif tag == 'FAM':
                 current_type = 'FAM'
-                current = {'id': args, 'married': None, 'divorced': None, 'husband': None, 'wife': None, 'children': []}
-                families[args] = current
+                current = {'id': args, 'married': None, 'divorced': None, 'husband': None, 'wife': None, 'children': [], 'line': i}
+                
+                if args in families:
+                    errors.append(ValidationError(i, 'US18', f'Duplicate family ID {args!r}'))
+                else:
+                    families[args] = current
                 date_context = None
                 current_entity_start_line = i
             else:
@@ -365,8 +373,24 @@ def validate_gedcom_lines(lines: Iterable[str]):
     if current is not None:
         close_entity(last_line_no)
 
+    errors.extend(check_unique_name_and_birth(individuals))
     return individuals, families, errors
 
+#us 19
+def check_unique_name_and_birth(individuals):
+    errors = []
+    seen = {}
+    for indi_id, p in individuals.items():
+        if not p.get('name') or not p.get('birth'):
+            continue
+        key = (p['name'].strip().lower(), parseGedDate(p['birth']) or p['birth'])
+        if key in seen:
+            errors.append(ValidationError(p.get('line', 0), 'US19',
+                f"Individual {displayId(indi_id)} has the same name and birth date as "
+                f"{displayId(seen[key])}: {p['name']}, {formatGedDate(p['birth'])}"))
+        else:
+            seen[key] = indi_id
+    return errors
 
 def validate_gedcom_file(path: str):
     with open(path, encoding='utf-8') as f:
