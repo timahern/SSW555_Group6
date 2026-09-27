@@ -62,6 +62,70 @@ class TestGedcomValidation(unittest.TestCase):
         _, _, errors = validate_gedcom_lines(data)
         self.assertTrue(any(e.code == 'FAM_MARR' for e in errors))
 
+    def test_invalid_calendar_date(self):
+        data = StringIO("\n".join([
+            "0 @I1@ INDI",
+            "1 NAME John /Doe/",
+            "1 SEX M",
+            "1 BIRT",
+            "2 DATE 30 FEB 2015",
+        ]))
+        _, _, errors = validate_gedcom_lines(data)
+        self.assertTrue(any(e.code == 'DATE_FORMAT' for e in errors))
+
+    def test_future_event_dates(self):
+        cases = [
+            [
+                "0 @I1@ INDI",
+                "1 NAME John /Doe/",
+                "1 SEX M",
+                "1 BIRT",
+                "2 DATE 1 JAN 2099",
+            ],
+            [
+                "0 @I1@ INDI",
+                "1 NAME John /Doe/",
+                "1 SEX M",
+                "1 BIRT",
+                "2 DATE 1 JAN 2000",
+                "1 DEAT",
+                "2 DATE 1 JAN 2099",
+            ],
+            [
+                "0 @F1@ FAM",
+                "1 MARR",
+                "2 DATE 1 JAN 2099",
+                "1 HUSB @I1@",
+                "1 WIFE @I2@",
+            ],
+            [
+                "0 @F1@ FAM",
+                "1 MARR",
+                "2 DATE 1 JAN 2000",
+                "1 DIV",
+                "2 DATE 1 JAN 2099",
+                "1 HUSB @I1@",
+                "1 WIFE @I2@",
+            ],
+        ]
+        for lines in cases:
+            with self.subTest(lines=lines[4]):
+                _, _, errors = validate_gedcom_lines(StringIO("\n".join(lines)))
+                self.assertTrue(any(e.code == 'DATE_FUTURE' for e in errors))
+
+    def test_lifespan(self):
+        data = StringIO("\n".join([
+            "0 @I1@ INDI",
+            "1 NAME John /Doe/",
+            "1 SEX M",
+            "1 BIRT",
+            "2 DATE 1 JAN 2000",
+            "1 DEAT",
+            "2 DATE 1 JAN 1990",
+        ]))
+        _, _, errors = validate_gedcom_lines(data)
+        self.assertTrue(any(e.code == 'INDI_LIFESPAN' for e in errors))
+
 
 if __name__ == '__main__':
     unittest.main()

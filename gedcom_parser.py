@@ -103,7 +103,10 @@ def parseGedDate(gedDate):
             year = int(year_str)
         except ValueError:
             return None
-        return date(year, MONTHS[mon_str], day)
+        try:
+            return date(year, MONTHS[mon_str], day)
+        except ValueError:
+            return None
     elif len(parts) == 2:
         mon_str, year_str = parts
         if mon_str not in MONTHS:
@@ -113,7 +116,10 @@ def parseGedDate(gedDate):
         except ValueError:
             return None
         # Default to first day of the month
-        return date(year, MONTHS[mon_str], 1)
+        try:
+            return date(year, MONTHS[mon_str], 1)
+        except ValueError:
+            return None
     elif len(parts) == 1:
         year_str = parts[0]
         try:
@@ -121,7 +127,10 @@ def parseGedDate(gedDate):
         except ValueError:
             return None
         # Default to Jan 1st for year-only
-        return date(year, 1, 1)
+        try:
+            return date(year, 1, 1)
+        except ValueError:
+            return None
     else:
         return None
 
@@ -136,6 +145,34 @@ def ageYears(birthDate, onDate):
     if (onDate.month, onDate.day) < (birthDate.month, birthDate.day):
         age -= 1
     return age
+
+MAX_LIFESPAN_YEARS = 150
+
+
+def _validate_individual_lifespan(individual, end_line, errors):
+    birth_raw = individual.get('birth')
+    if not birth_raw:
+        return
+    birth_dt = parseGedDate(birth_raw)
+    if birth_dt is None:
+        return
+    death_raw = individual.get('death')
+    if death_raw is not None:
+        death_dt = parseGedDate(death_raw)
+        if death_dt is None:
+            return
+        if death_dt < birth_dt:
+            errors.append(ValidationError(
+                end_line, 'INDI_LIFESPAN',
+                'Birth must occur before death'))
+            return
+        age = ageYears(birth_dt, death_dt)
+    else:
+        age = ageYears(birth_dt, date.today())
+    if age > MAX_LIFESPAN_YEARS:
+        errors.append(ValidationError(
+            end_line, 'INDI_LIFESPAN',
+            f'Individual age cannot exceed {MAX_LIFESPAN_YEARS} years'))
 
 def formatIdSet(ids):
     if not ids:
@@ -188,6 +225,19 @@ class ValidationError:
 
     def __repr__(self):
         return f"ValidationError(line_no={self.line_no}, code={self.code!r}, message={self.message!r})"
+
+
+def _validate_event_dates_not_after_today(entity, end_line, errors, field_names):
+    today = date.today()
+    for name in field_names:
+        raw = entity.get(name)
+        if raw is None:
+            continue
+        parsed = parseGedDate(raw)
+        if parsed is not None and parsed > today:
+            errors.append(ValidationError(
+                end_line, 'DATE_FUTURE',
+                'Date must not be after the current date'))
 
 
 def _is_level_token(token: str) -> bool:
@@ -248,6 +298,9 @@ def validate_gedcom_lines(lines: Iterable[str]):
             nm = current.get('name')
             if nm is not None and ('/' not in nm or nm.count('/') < 2):
                 errors.append(ValidationError(end_line, 'INDI_NAME', 'NAME must include surname delimited by slashes, e.g., Mark /Ardis/'))
+            _validate_event_dates_not_after_today(
+                current, end_line, errors, ('birth', 'death'))
+            _validate_individual_lifespan(current, end_line, errors)
         elif current_type == 'FAM' and current is not None:
             # MARR required and must have a valid DATE
             if not current.get('married'):
@@ -255,6 +308,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
             # DIV if present must be valid
             if current.get('divorced') is not None and parseGedDate(current.get('divorced')) is None:
                 errors.append(ValidationError(end_line, 'FAM_DIV_DATE', 'DIV must be followed by a valid DATE'))
+            _validate_event_dates_not_after_today(
+                current, end_line, errors, ('married', 'divorced'))
         # Reset context
         current = None
         current_type = None
@@ -347,7 +402,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
                 date_context = None
                 continue
             # Validate and assign the date string
-            if parseGedDate(args) is None:
+            parsed = parseGedDate(args)
+            if parsed is None:
                 errors.append(ValidationError(i, 'DATE_FORMAT', f'Invalid date: {args!r}'))
             if current_type == 'INDI':
                 if date_context == 'BIRT':
