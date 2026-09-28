@@ -292,7 +292,55 @@ def _validate_no_duplicate_references(references, errors):
         else:
             seen.add(key)
 
+def _validate_corresponding_references(references, individuals, families, errors):
+    for line_no, owner_id, tag, target_id in references:
 
+        if tag == 'FAMC':
+            family = families.get(target_id)
+            if family is not None and owner_id not in family.get('children', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'FAMC {target_id} in {owner_id} does not correspond to CHIL {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag == 'FAMS':
+            family = families.get(target_id)
+            if family is not None and owner_id not in (
+                family.get('husband'),
+                family.get('wife')
+            ):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'FAMS {target_id} in {owner_id} does not correspond to HUSB/WIFE {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag == 'CHIL':
+            individual = individuals.get(target_id)
+            if individual is not None and owner_id not in individual.get('famc', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'CHIL {target_id} in {owner_id} does not correspond to FAMC {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag in ('HUSB', 'WIFE'):
+            individual = individuals.get(target_id)
+            if individual is not None and owner_id not in individual.get('fams', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'{tag} {target_id} in {owner_id} does not correspond to FAMS {owner_id} in {target_id}'
+                    )
+                )
 def validate_gedcom_lines(lines: Iterable[str]):
     """Validate GEDCOM content from an iterable of lines.
     Returns (individuals, families, errors) where errors is a list of ValidationError
@@ -460,7 +508,7 @@ def validate_gedcom_lines(lines: Iterable[str]):
     # Cross-record checks need the whole file loaded first
     _validate_references(references, individuals, families, errors)
     _validate_no_duplicate_references(references, errors)
-
+    _validate_corresponding_references(references, individuals, families, errors)
     return individuals, families, errors
 
 
