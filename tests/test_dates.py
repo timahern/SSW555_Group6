@@ -23,6 +23,8 @@ class TestGedcomDates(unittest.TestCase):
     def test_invalid_inputs_return_none(self):
         # Invalid month in month-year form
         self.assertIsNone(parseGedDate('FOO 1990'))
+        self.assertIsNone(parseGedDate('30 FEB 2015'))
+        self.assertIsNone(parseGedDate('31 APR 2000'))
         # Empty or special GEDCOM 'Y' value should yield None
         self.assertIsNone(parseGedDate(''))
         self.assertIsNone(parseGedDate('Y'))

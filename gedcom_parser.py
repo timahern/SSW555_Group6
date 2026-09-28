@@ -1,4 +1,5 @@
 from datetime import date
+from xml.parsers.expat import errors
 
 TAGS = {('0', 'INDI'), ('0', 'FAM'), ('0', 'HEAD'), ('0', 'TRLR'), ('0', 'NOTE'),('1', 'NAME'), ('1', 'SEX'),  ('1', 'BIRT'),('1', 'DEAT'), ('1', 'FAMC'), ('1', 'FAMS'), ('1', 'MARR'), ('1', 'HUSB'), ('1', 'WIFE'), ('1', 'CHIL'), ('1', 'DIV'), ('2', 'DATE')}
 
@@ -103,7 +104,10 @@ def parseGedDate(gedDate):
             year = int(year_str)
         except ValueError:
             return None
-        return date(year, MONTHS[mon_str], day)
+        try:
+            return date(year, MONTHS[mon_str], day)
+        except ValueError:
+            return None
     elif len(parts) == 2:
         mon_str, year_str = parts
         if mon_str not in MONTHS:
@@ -113,7 +117,10 @@ def parseGedDate(gedDate):
         except ValueError:
             return None
         # Default to first day of the month
-        return date(year, MONTHS[mon_str], 1)
+        try:
+            return date(year, MONTHS[mon_str], 1)
+        except ValueError:
+            return None
     elif len(parts) == 1:
         year_str = parts[0]
         try:
@@ -121,7 +128,10 @@ def parseGedDate(gedDate):
         except ValueError:
             return None
         # Default to Jan 1st for year-only
-        return date(year, 1, 1)
+        try:
+            return date(year, 1, 1)
+        except ValueError:
+            return None
     else:
         return None
 
@@ -136,6 +146,34 @@ def ageYears(birthDate, onDate):
     if (onDate.month, onDate.day) < (birthDate.month, birthDate.day):
         age -= 1
     return age
+
+MAX_LIFESPAN_YEARS = 150
+
+
+def _validate_individual_lifespan(individual, end_line, errors):
+    birth_raw = individual.get('birth')
+    if not birth_raw:
+        return
+    birth_dt = parseGedDate(birth_raw)
+    if birth_dt is None:
+        return
+    death_raw = individual.get('death')
+    if death_raw is not None:
+        death_dt = parseGedDate(death_raw)
+        if death_dt is None:
+            return
+        if death_dt < birth_dt:
+            errors.append(ValidationError(
+                end_line, 'INDI_LIFESPAN',
+                'Birth must occur before death'))
+            return
+        age = ageYears(birth_dt, death_dt)
+    else:
+        age = ageYears(birth_dt, date.today())
+    if age > MAX_LIFESPAN_YEARS:
+        errors.append(ValidationError(
+            end_line, 'INDI_LIFESPAN',
+            f'Individual age cannot exceed {MAX_LIFESPAN_YEARS} years'))
 
 def formatIdSet(ids):
     if not ids:
@@ -190,6 +228,19 @@ class ValidationError:
         return f"ValidationError(line_no={self.line_no}, code={self.code!r}, message={self.message!r})"
 
 
+def _validate_event_dates_not_after_today(entity, end_line, errors, field_names):
+    today = date.today()
+    for name in field_names:
+        raw = entity.get(name)
+        if raw is None:
+            continue
+        parsed = parseGedDate(raw)
+        if parsed is not None and parsed > today:
+            errors.append(ValidationError(
+                end_line, 'DATE_FUTURE',
+                'Date must not be after the current date'))
+
+
 def _is_level_token(token: str) -> bool:
     return token.isdigit()
 
@@ -215,6 +266,82 @@ def _parse_level_tag_args_raw(raw_line: str) -> Tuple[Optional[int], Optional[st
     return level, tag, args
 
 
+# Which kind of record each reference tag must point to
+REF_TARGET_TYPE = {'HUSB': 'INDI', 'WIFE': 'INDI', 'CHIL': 'INDI',
+                   'FAMC': 'FAM', 'FAMS': 'FAM'}
+
+
+def _validate_references(references, individuals, families, errors):
+    """US38: every referenced individual and family ID must exist."""
+    for line_no, owner_id, tag, target_id in references:
+        pool = individuals if REF_TARGET_TYPE[tag] == 'INDI' else families
+        if target_id not in pool:
+            errors.append(ValidationError(
+                line_no, 'REF_MISSING',
+                f'{tag} {target_id} in {owner_id} does not refer to an existing record'))
+
+
+def _validate_no_duplicate_references(references, errors):
+    """US41: the same reference should not appear twice in one record."""
+    seen = set()
+    for line_no, owner_id, tag, target_id in references:
+        key = (owner_id, tag, target_id)
+        if key in seen:
+            errors.append(ValidationError(
+                line_no, 'REF_DUPLICATE',
+                f'Duplicate {tag} {target_id} in {owner_id}'))
+        else:
+            seen.add(key)
+
+def _validate_corresponding_references(references, individuals, families, errors):
+    for line_no, owner_id, tag, target_id in references:
+
+        if tag == 'FAMC':
+            family = families.get(target_id)
+            if family is not None and owner_id not in family.get('children', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'FAMC {target_id} in {owner_id} does not correspond to CHIL {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag == 'FAMS':
+            family = families.get(target_id)
+            if family is not None and owner_id not in (
+                family.get('husband'),
+                family.get('wife')
+            ):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'FAMS {target_id} in {owner_id} does not correspond to HUSB/WIFE {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag == 'CHIL':
+            individual = individuals.get(target_id)
+            if individual is not None and owner_id not in individual.get('famc', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'CHIL {target_id} in {owner_id} does not correspond to FAMC {owner_id} in {target_id}'
+                    )
+                )
+
+        elif tag in ('HUSB', 'WIFE'):
+            individual = individuals.get(target_id)
+            if individual is not None and owner_id not in individual.get('fams', []):
+                errors.append(
+                    ValidationError(
+                        line_no,
+                        'REF_MISMATCH',
+                        f'{tag} {target_id} in {owner_id} does not correspond to FAMS {owner_id} in {target_id}'
+                    )
+                )
 def validate_gedcom_lines(lines: Iterable[str]):
     """Validate GEDCOM content from an iterable of lines.
     Returns (individuals, families, errors) where errors is a list of ValidationError
@@ -223,6 +350,9 @@ def validate_gedcom_lines(lines: Iterable[str]):
     individuals: Dict[str, Dict[str, Any]] = {}
     families: Dict[str, Dict[str, Any]] = {}
     errors: List[ValidationError] = []
+    # Every HUSB/WIFE/CHIL/FAMC/FAMS seen, as (line_no, owner_id, tag, target_id).
+    # Checked after the whole file is read (US38, US41).
+    references: List[Tuple[int, str, str, str]] = []
 
     current: Optional[Dict[str, Any]] = None
     current_type: Optional[str] = None  # 'INDI' | 'FAM' | None
@@ -248,6 +378,9 @@ def validate_gedcom_lines(lines: Iterable[str]):
             nm = current.get('name')
             if nm is not None and ('/' not in nm or nm.count('/') < 2):
                 errors.append(ValidationError(end_line, 'INDI_NAME', 'NAME must include surname delimited by slashes, e.g., Mark /Ardis/'))
+            _validate_event_dates_not_after_today(
+                current, end_line, errors, ('birth', 'death'))
+            _validate_individual_lifespan(current, end_line, errors)
         elif current_type == 'FAM' and current is not None:
             # MARR required and must have a valid DATE
             if not current.get('married'):
@@ -255,6 +388,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
             # DIV if present must be valid
             if current.get('divorced') is not None and parseGedDate(current.get('divorced')) is None:
                 errors.append(ValidationError(end_line, 'FAM_DIV_DATE', 'DIV must be followed by a valid DATE'))
+            _validate_event_dates_not_after_today(
+                current, end_line, errors, ('married', 'divorced'))
         # Reset context
         current = None
         current_type = None
@@ -323,9 +458,11 @@ def validate_gedcom_lines(lines: Iterable[str]):
                     date_context = 'DEAT'
                 elif tag == 'FAMC':
                     current['famc'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'FAMS':
                     current['fams'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 else:
                     date_context = None
@@ -336,12 +473,15 @@ def validate_gedcom_lines(lines: Iterable[str]):
                     date_context = 'DIV'
                 elif tag == 'HUSB':
                     current['husband'] = args
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'WIFE':
                     current['wife'] = args
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'CHIL':
                     current['children'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 else:
                     date_context = None
@@ -355,7 +495,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
                 date_context = None
                 continue
             # Validate and assign the date string
-            if parseGedDate(args) is None:
+            parsed = parseGedDate(args)
+            if parsed is None:
                 errors.append(ValidationError(i, 'DATE_FORMAT', f'Invalid date: {args!r}'))
             if current_type == 'INDI':
                 if date_context == 'BIRT':
@@ -373,6 +514,10 @@ def validate_gedcom_lines(lines: Iterable[str]):
     if current is not None:
         close_entity(last_line_no)
 
+    #us19 hope this works now...
+    _validate_references(references, individuals, families, errors)
+    _validate_no_duplicate_references(references, errors)
+    _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
     return individuals, families, errors
 
