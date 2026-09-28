@@ -265,6 +265,34 @@ def _parse_level_tag_args_raw(raw_line: str) -> Tuple[Optional[int], Optional[st
     return level, tag, args
 
 
+# Which kind of record each reference tag must point to
+REF_TARGET_TYPE = {'HUSB': 'INDI', 'WIFE': 'INDI', 'CHIL': 'INDI',
+                   'FAMC': 'FAM', 'FAMS': 'FAM'}
+
+
+def _validate_references(references, individuals, families, errors):
+    """US38: every referenced individual and family ID must exist."""
+    for line_no, owner_id, tag, target_id in references:
+        pool = individuals if REF_TARGET_TYPE[tag] == 'INDI' else families
+        if target_id not in pool:
+            errors.append(ValidationError(
+                line_no, 'REF_MISSING',
+                f'{tag} {target_id} in {owner_id} does not refer to an existing record'))
+
+
+def _validate_no_duplicate_references(references, errors):
+    """US41: the same reference should not appear twice in one record."""
+    seen = set()
+    for line_no, owner_id, tag, target_id in references:
+        key = (owner_id, tag, target_id)
+        if key in seen:
+            errors.append(ValidationError(
+                line_no, 'REF_DUPLICATE',
+                f'Duplicate {tag} {target_id} in {owner_id}'))
+        else:
+            seen.add(key)
+
+
 def validate_gedcom_lines(lines: Iterable[str]):
     """Validate GEDCOM content from an iterable of lines.
     Returns (individuals, families, errors) where errors is a list of ValidationError
@@ -273,6 +301,9 @@ def validate_gedcom_lines(lines: Iterable[str]):
     individuals: Dict[str, Dict[str, Any]] = {}
     families: Dict[str, Dict[str, Any]] = {}
     errors: List[ValidationError] = []
+    # Every HUSB/WIFE/CHIL/FAMC/FAMS seen, as (line_no, owner_id, tag, target_id).
+    # Checked after the whole file is read (US38, US41).
+    references: List[Tuple[int, str, str, str]] = []
 
     current: Optional[Dict[str, Any]] = None
     current_type: Optional[str] = None  # 'INDI' | 'FAM' | None
@@ -370,9 +401,11 @@ def validate_gedcom_lines(lines: Iterable[str]):
                     date_context = 'DEAT'
                 elif tag == 'FAMC':
                     current['famc'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'FAMS':
                     current['fams'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 else:
                     date_context = None
@@ -383,12 +416,15 @@ def validate_gedcom_lines(lines: Iterable[str]):
                     date_context = 'DIV'
                 elif tag == 'HUSB':
                     current['husband'] = args
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'WIFE':
                     current['wife'] = args
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 elif tag == 'CHIL':
                     current['children'].append(args)
+                    references.append((i, current['id'], tag, args))
                     date_context = None
                 else:
                     date_context = None
@@ -420,6 +456,10 @@ def validate_gedcom_lines(lines: Iterable[str]):
     # Close any open entity at EOF
     if current is not None:
         close_entity(last_line_no)
+
+    # Cross-record checks need the whole file loaded first
+    _validate_references(references, individuals, families, errors)
+    _validate_no_duplicate_references(references, errors)
 
     return individuals, families, errors
 
