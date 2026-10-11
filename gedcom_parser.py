@@ -519,6 +519,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     _validate_no_duplicate_references(references, errors)
     _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
+    errors.extend(check_age_at_marriage(individuals, families))
+    errors.extend(check_marriage_divorce_death_order(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -536,6 +538,84 @@ def check_unique_name_and_birth(individuals):
         else:
             seen[key] = indi_id
     return errors
+
+MIN_MARRIAGE_AGE_YEARS = 14
+
+
+def _iter_spouses(family):
+    husband_id = family.get('husband')
+    if husband_id:
+        yield 'Husband', husband_id
+    wife_id = family.get('wife')
+    if wife_id:
+        yield 'Wife', wife_id
+
+
+def _person_event_date(individuals, person_id, field):
+    person = individuals.get(person_id)
+    if person is None:
+        return None
+    raw = person.get(field)
+    if not raw:
+        return None
+    return parseGedDate(raw)
+
+
+def check_age_at_marriage(individuals, families):
+    errors = []
+    for fam in families.values():
+        married_raw = fam.get('married')
+        married_dt = parseGedDate(married_raw) if married_raw else None
+        if married_dt is None:
+            continue
+        line_no = fam.get('line', 0)
+        fam_label = displayId(fam.get('id', ''))
+        for role, spouse_id in _iter_spouses(fam):
+            birth_dt = _person_event_date(individuals, spouse_id, 'birth')
+            if birth_dt is None:
+                continue
+            spouse_label = displayId(spouse_id)
+            if birth_dt >= married_dt:
+                errors.append(ValidationError(
+                    line_no, 'US02',
+                    f'{role} {spouse_label} in {fam_label} must be born before marriage'))
+                continue
+            if ageYears(birth_dt, married_dt) < MIN_MARRIAGE_AGE_YEARS:
+                errors.append(ValidationError(
+                    line_no, 'US02',
+                    f'{role} {spouse_label} in {fam_label} must be at least '
+                    f'{MIN_MARRIAGE_AGE_YEARS} years old at marriage'))
+    return errors
+
+
+def check_marriage_divorce_death_order(individuals, families):
+    errors = []
+    for fam in families.values():
+        divorced_raw = fam.get('divorced')
+        if not divorced_raw:
+            continue
+        divorced_dt = parseGedDate(divorced_raw)
+        if divorced_dt is None:
+            continue
+        line_no = fam.get('line', 0)
+        fam_label = displayId(fam.get('id', ''))
+        married_raw = fam.get('married')
+        married_dt = parseGedDate(married_raw) if married_raw else None
+        if married_dt is not None and married_dt >= divorced_dt:
+            errors.append(ValidationError(
+                line_no, 'US04',
+                f'Marriage in {fam_label} must occur before divorce'))
+        for role, spouse_id in _iter_spouses(fam):
+            death_dt = _person_event_date(individuals, spouse_id, 'death')
+            if death_dt is None:
+                continue
+            if divorced_dt >= death_dt:
+                errors.append(ValidationError(
+                    line_no, 'US04',
+                    f'Divorce in {fam_label} must occur before '
+                    f'{role.lower()} {displayId(spouse_id)} death'))
+    return errors
+
 
 def validate_gedcom_file(path: str):
     with open(path, encoding='utf-8') as f:
