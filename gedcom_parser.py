@@ -519,6 +519,7 @@ def validate_gedcom_lines(lines: Iterable[str]):
     _validate_no_duplicate_references(references, errors)
     _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
+    errors.extend(check_birth_before_parents_death(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -535,6 +536,58 @@ def check_unique_name_and_birth(individuals):
                 f"{displayId(seen[key])}: {p['name']}, {formatGedDate(p['birth'])}"))
         else:
             seen[key] = indi_id
+    return errors
+
+# US09 - Birth before death of parents
+# - Child should be born before death of mother
+# - Child should be born no more than 9 months after death of father
+
+def check_birth_before_parents_death(individuals, families):
+    errors = []
+    NINE_MONTHS_IN_DAYS = 272  # approximate 9 months
+
+    for fam_id, fam in families.items():
+        mother_id = fam.get('wife')
+        father_id = fam.get('husband')
+        children = fam.get('children', []) or []
+
+        mother = individuals.get(mother_id) if mother_id else None
+        father = individuals.get(father_id) if father_id else None
+
+        mother_death = parseGedDate(mother.get('death')) if mother and mother.get('death') else None
+        father_death = parseGedDate(father.get('death')) if father and father.get('death') else None
+
+        for child_id in children:
+            child = individuals.get(child_id)
+            if not child:
+                continue
+            child_birth = parseGedDate(child.get('birth')) if child.get('birth') else None
+            if not child_birth:
+                continue  # cannot validate without child birth
+
+            # Check against mother's death: child must be born strictly before mother's death
+            if mother_death is not None and child_birth >= mother_death:
+                errors.append(ValidationError(
+                    fam.get('line', 0), 'US09',
+                    f"Child {displayId(child_id)} born {child_birth.isoformat()} is not before mother's death "
+                    f"({displayId(mother_id)}: {formatGedDate(mother.get('death'))}) in family {displayId(fam_id)}"))
+
+            # Check against father's death: child must be born no more than 9 months after father's death
+            if father_death is not None:
+                # Compute threshold = father_death + 272 days
+                try:
+                    from datetime import timedelta
+                    threshold = father_death.toordinal() + NINE_MONTHS_IN_DAYS
+                    # Convert back to date for comparison
+                    threshold_date = date.fromordinal(threshold)
+                except Exception:
+                    threshold_date = None
+                if threshold_date is not None and child_birth > threshold_date:
+                    errors.append(ValidationError(
+                        fam.get('line', 0), 'US09',
+                        f"Child {displayId(child_id)} born {child_birth.isoformat()} is more than 9 months after father's death "
+                        f"({displayId(father_id)}: {formatGedDate(father.get('death'))}) in family {displayId(fam_id)}"))
+
     return errors
 
 def validate_gedcom_file(path: str):
