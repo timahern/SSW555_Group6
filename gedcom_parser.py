@@ -522,6 +522,7 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_birth_before_parents_death(individuals, families))
     errors.extend(check_age_at_marriage(individuals, families))
     errors.extend(check_marriage_divorce_death_order(individuals, families))
+    errors.extend(check_no_bigamy(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -669,6 +670,91 @@ def check_marriage_divorce_death_order(individuals, families):
                     f'{role.lower()} {displayId(spouse_id)} death'))
     return errors
 
+
+# US08 - No bigamy: Marriage should not occur during marriage to another spouse
+# Implementation notes:
+# - For each individual, we gather all marriage intervals from their FAM records.
+# - Interval start: family['married'] date (required for consideration). If missing, we skip the interval.
+# - Interval end: earliest of family['divorced'], spouse death, or self death. If none known, it's open-ended (None).
+# - We then perform a simple O(n^2) pairwise overlap check among intervals for that person.
+# - If two intervals overlap, we report a ValidationError with code 'US08'.
+
+def check_no_bigamy(individuals, families):
+    errors = []
+
+    def _fam_interval_for_person(person_id, fam):
+        # Build interval for this person within given family
+        married_raw = fam.get('married')
+        start = parseGedDate(married_raw) if married_raw else None
+        if start is None:
+            return None  # cannot form interval without a start date
+        # Identify spouse and compute end date as earliest of divorce, spouse death, or self death
+        end_candidates = []
+        # Divorce
+        div_raw = fam.get('divorced')
+        if div_raw:
+            div_dt = parseGedDate(div_raw)
+            if div_dt:
+                end_candidates.append(div_dt)
+        # Determine spouse and their death
+        spouse_id = None
+        if fam.get('husband') == person_id:
+            spouse_id = fam.get('wife')
+        elif fam.get('wife') == person_id:
+            spouse_id = fam.get('husband')
+        # Self death
+        self_death = _person_event_date(individuals, person_id, 'death')
+        if self_death is not None:
+            end_candidates.append(self_death)
+        # Spouse death
+        if spouse_id:
+            spouse_death = _person_event_date(individuals, spouse_id, 'death')
+            if spouse_death is not None:
+                end_candidates.append(spouse_death)
+        end = min(end_candidates) if end_candidates else None
+        return (start, end)
+
+    # Build intervals per person (refactored to avoid duplication)
+    intervals_by_person = {}
+    for fam in families.values():
+        for _, person_id in _iter_spouses(fam):
+            interval = _fam_interval_for_person(person_id, fam)
+            if interval is None:
+                continue
+            start, end = interval
+            intervals_by_person.setdefault(person_id, []).append((fam, start, end))
+
+    # Check overlaps per person using sort-and-scan (O(n log n))
+    for person_id, intervals in intervals_by_person.items():
+        intervals.sort(key=lambda x: (x[1] or date.min, x[2] or date.max))
+        prev = None  # (fam, start, end)
+        for current in intervals:
+            fam_c, s_c, e_c = current
+            if s_c is None:
+                continue
+            if prev is None:
+                prev = current
+                continue
+            fam_p, s_p, e_p = prev
+            # Overlap if current start is before or equal to previous end (or previous end is open)
+            if e_p is None or s_c <= e_p:
+                line_no = max(fam_p.get('line', 0), fam_c.get('line', 0))
+                p_label = displayId(person_id)
+                f1 = displayId(fam_p.get('id', ''))
+                f2 = displayId(fam_c.get('id', ''))
+                def fmt(dt):
+                    return dt.isoformat() if dt else 'NA'
+                msg = (f"Individual {p_label} has overlapping marriages between families "
+                       f"{f1} [{fmt(s_p)} - {fmt(e_p)}] and {f2} [{fmt(s_c)} - {fmt(e_c)}]")
+                errors.append(ValidationError(line_no, 'US08', msg))
+                # Merge intervals to continue scanning
+                # Extend previous interval to cover the furthest end to catch chains of overlaps
+                if e_p is None or (e_c is not None and e_c > e_p):
+                    prev = (fam_p, s_p, e_c)
+                # else keep prev as is
+            else:
+                prev = current
+    return errors
 
 def validate_gedcom_file(path: str):
     with open(path, encoding='utf-8') as f:
