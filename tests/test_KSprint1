@@ -68,6 +68,41 @@ class TestUS18UniqueIDs(unittest.TestCase):
         _, _, errors = validate_gedcom_lines(data)
         self.assertFalse(any(e.code == 'US18' for e in errors))
 
+    def test_three_records_same_id_flagged_twice(self):
+        data = StringIO("\n".join([
+            "0 @I1@ INDI",
+            "1 NAME John /Doe/",
+            "1 SEX M",
+            "1 BIRT",
+            "2 DATE 15 MAR 1990",
+            "0 @I1@ INDI",        # Invalid: first duplicate
+            "1 NAME Jane /Doe/",
+            "1 SEX F",
+            "1 BIRT",
+            "2 DATE 20 APR 1992",
+            "0 @I1@ INDI",        # Invalid: second duplicate
+            "1 NAME Jack /Doe/",
+            "1 SEX M",
+            "1 BIRT",
+            "2 DATE 5 JAN 1995",
+        ]))
+        _, _, errors = validate_gedcom_lines(data)
+        us18 = [e for e in errors if e.code == 'US18']
+        self.assertEqual(len(us18), 2)
+
+    def test_error_message_names_duplicate_id(self):
+        data = StringIO("\n".join([
+            "0 @F7@ FAM",
+            "1 MARR",
+            "2 DATE 10 JUN 1985",
+            "0 @F7@ FAM",         # Invalid: reuses ID @F7@
+            "1 MARR",
+            "2 DATE 12 JUL 1995",
+        ]))
+        _, _, errors = validate_gedcom_lines(data)
+        us18 = [e for e in errors if e.code == 'US18']
+        self.assertIn('@F7@', us18[0].message)
+
 
 class TestUS19UniqueNameAndBirth(unittest.TestCase):
     def test_same_name_and_birth_is_flagged(self):
