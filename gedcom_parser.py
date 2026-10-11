@@ -1,5 +1,6 @@
 from datetime import date
 from xml.parsers.expat import errors
+import calendar
 
 TAGS = {('0', 'INDI'), ('0', 'FAM'), ('0', 'HEAD'), ('0', 'TRLR'), ('0', 'NOTE'),('1', 'NAME'), ('1', 'SEX'),  ('1', 'BIRT'),('1', 'DEAT'), ('1', 'FAMC'), ('1', 'FAMS'), ('1', 'MARR'), ('1', 'HUSB'), ('1', 'WIFE'), ('1', 'CHIL'), ('1', 'DIV'), ('2', 'DATE')}
 
@@ -519,6 +520,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     _validate_no_duplicate_references(references, errors)
     _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
+    errors.extend(check_marriage_before_death(individuals, families))
+    errors.extend(check_birth_after_parents_marriage(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -535,6 +538,60 @@ def check_unique_name_and_birth(individuals):
                 f"{displayId(seen[key])}: {p['name']}, {formatGedDate(p['birth'])}"))
         else:
             seen[key] = indi_id
+    return errors
+
+def _add_months(d, months):
+    """Returns date d plus the number of months passed in months"""
+    month_index=d.month-1+months
+    year=d.year+month_index//12
+    month=month_index%12+1
+    last_day=calendar.monthrange(year, month)[1]
+    return date(year, month, min(d.day,last_day))
+
+# US05
+def check_marriage_before_death(individuals, families):
+    """Marriage should occur before death of either spouse."""
+    errors = []
+    for fam_id, fam in families.items():
+        married = parseGedDate(fam.get('married'))
+        if married is None:
+            continue
+        for role in ('husband', 'wife'):
+            spouse_id = fam.get(role)
+            spouse = individuals.get(spouse_id) if spouse_id else None
+            if spouse is None:
+                continue
+            death = parseGedDate(spouse.get('death'))
+            if death is not None and married > death:
+                errors.append(ValidationError(fam.get('line', 0), 'US05',
+                    f"Family {displayId(fam_id)} married {married.isoformat()} after "
+                    f"{role} {displayId(spouse_id)} died {death.isoformat()}"))
+    return errors
+
+
+# US06
+def check_birth_after_parents_marriage(individuals, families):
+    """Children should be born after their parents' marriage and
+    no more than 9 months after their divorce."""
+    errors = []
+    for fam_id, fam in families.items():
+        married = parseGedDate(fam.get('married'))
+        divorced = parseGedDate(fam.get('divorced'))
+        for child_id in fam.get('children', []):
+            child = individuals.get(child_id)
+            if child is None:
+                continue
+            birth = parseGedDate(child.get('birth'))
+            if birth is None:
+                continue
+            if married is not None and birth < married:
+                errors.append(ValidationError(child.get('line', 0), 'US06',
+                    f"Child {displayId(child_id)} born {birth.isoformat()} before parents' "
+                    f"marriage {married.isoformat()} in family {displayId(fam_id)}"))
+            if divorced is not None and birth > _add_months(divorced, 9):
+                errors.append(ValidationError(child.get('line', 0), 'US06',
+                    f"Child {displayId(child_id)} born {birth.isoformat()} more than 9 months "
+                    f"after parents' divorce {divorced.isoformat()} in family {displayId(fam_id)}"))
     return errors
 
 def validate_gedcom_file(path: str):
