@@ -514,11 +514,13 @@ def validate_gedcom_lines(lines: Iterable[str]):
     if current is not None:
         close_entity(last_line_no)
 
-    #us19 hope this works now...
+    #us19 
     _validate_references(references, individuals, families, errors)
     _validate_no_duplicate_references(references, errors)
     _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
+    errors.extend(check_multiple_births(individuals, families))
+    errors.extend(check_sibling_count(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -540,6 +542,53 @@ def check_unique_name_and_birth(individuals):
 def validate_gedcom_file(path: str):
     with open(path, encoding='utf-8') as f:
         return validate_gedcom_lines(f)
+
+#us11
+
+def check_multiple_births(individuals, families):
+    errors = []
+
+    for family in families.values():
+        birth_dates = {}
+
+        for child_id in family['children']:
+            if child_id in individuals:
+                birth_date = individuals[child_id]['birth']
+
+                if birth_date:
+                    birth_dates[birth_date] = birth_dates.get(birth_date, 0) + 1
+
+        for birth_date, count in birth_dates.items():
+            if count > 5:
+                errors.append(
+                    ValidationError(
+                        family['line'],
+                        'US11',
+                        f"Family {family['id']} has more than 5 children born on {birth_date}"
+                    )
+                )
+
+    return errors
+
+#us12
+
+def check_sibling_count(individuals, families):
+    errors = []
+
+    for family in families.values():
+        if len(family['children']) >= 15:
+            errors.append(
+                ValidationError(
+                    family['line'],
+                    'US12',
+                    f"Family {family['id']} has 15 or more children"
+                )
+            )
+
+    return errors
+
+    
+
 
 
 if __name__ == '__main__':
