@@ -1,5 +1,6 @@
 from datetime import date
 from xml.parsers.expat import errors
+import calendar
 
 TAGS = {('0', 'INDI'), ('0', 'FAM'), ('0', 'HEAD'), ('0', 'TRLR'), ('0', 'NOTE'),('1', 'NAME'), ('1', 'SEX'),  ('1', 'BIRT'),('1', 'DEAT'), ('1', 'FAMC'), ('1', 'FAMS'), ('1', 'MARR'), ('1', 'HUSB'), ('1', 'WIFE'), ('1', 'CHIL'), ('1', 'DIV'), ('2', 'DATE')}
 
@@ -521,6 +522,12 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_unique_name_and_birth(individuals))
     errors.extend(check_multiple_births(individuals, families))
     errors.extend(check_sibling_count(individuals, families))
+    errors.extend(check_birth_before_parents_death(individuals, families))
+    errors.extend(check_marriage_before_death(individuals, families))
+    errors.extend(check_birth_after_parents_marriage(individuals, families))
+    errors.extend(check_age_at_marriage(individuals, families))
+    errors.extend(check_marriage_divorce_death_order(individuals, families))
+    errors.extend(check_no_bigamy(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -537,6 +544,275 @@ def check_unique_name_and_birth(individuals):
                 f"{displayId(seen[key])}: {p['name']}, {formatGedDate(p['birth'])}"))
         else:
             seen[key] = indi_id
+    return errors
+
+def _add_months(d, months):
+    """Returns date d plus the number of months passed in months"""
+    month_index=d.month-1+months
+    year=d.year+month_index//12
+    month=month_index%12+1
+    last_day=calendar.monthrange(year, month)[1]
+    return date(year, month, min(d.day,last_day))
+
+# US05
+def check_marriage_before_death(individuals, families):
+    """Marriage should occur before death of either spouse."""
+    errors = []
+    for fam_id, fam in families.items():
+        married = parseGedDate(fam.get('married'))
+        if married is None:
+            continue
+        for role in ('husband', 'wife'):
+            spouse_id = fam.get(role)
+            spouse = individuals.get(spouse_id) if spouse_id else None
+            if spouse is None:
+                continue
+            death = parseGedDate(spouse.get('death'))
+            if death is not None and married > death:
+                errors.append(ValidationError(fam.get('line', 0), 'US05',
+                    f"Family {displayId(fam_id)} married {married.isoformat()} after "
+                    f"{role} {displayId(spouse_id)} died {death.isoformat()}"))
+    return errors
+
+
+# US06
+def check_birth_after_parents_marriage(individuals, families):
+    """Children should be born after their parents' marriage and
+    no more than 9 months after their divorce."""
+    errors = []
+    for fam_id, fam in families.items():
+        married = parseGedDate(fam.get('married'))
+        divorced = parseGedDate(fam.get('divorced'))
+        for child_id in fam.get('children', []):
+            child = individuals.get(child_id)
+            if child is None:
+                continue
+            birth = parseGedDate(child.get('birth'))
+            if birth is None:
+                continue
+            if married is not None and birth < married:
+                errors.append(ValidationError(child.get('line', 0), 'US06',
+                    f"Child {displayId(child_id)} born {birth.isoformat()} before parents' "
+                    f"marriage {married.isoformat()} in family {displayId(fam_id)}"))
+            if divorced is not None and birth > _add_months(divorced, 9):
+                errors.append(ValidationError(child.get('line', 0), 'US06',
+                    f"Child {displayId(child_id)} born {birth.isoformat()} more than 9 months "
+                    f"after parents' divorce {divorced.isoformat()} in family {displayId(fam_id)}"))
+    return errors
+
+# US09 - Birth before death of parents
+# - Child should be born before death of mother
+# - Child should be born no more than 9 months after death of father
+
+def check_birth_before_parents_death(individuals, families):
+    errors = []
+    NINE_MONTHS_IN_DAYS = 272  # approximate 9 months
+
+    for fam_id, fam in families.items():
+        mother_id = fam.get('wife')
+        father_id = fam.get('husband')
+        children = fam.get('children', []) or []
+
+        mother = individuals.get(mother_id) if mother_id else None
+        father = individuals.get(father_id) if father_id else None
+
+        mother_death = parseGedDate(mother.get('death')) if mother and mother.get('death') else None
+        father_death = parseGedDate(father.get('death')) if father and father.get('death') else None
+
+        for child_id in children:
+            child = individuals.get(child_id)
+            if not child:
+                continue
+            child_birth = parseGedDate(child.get('birth')) if child.get('birth') else None
+            if not child_birth:
+                continue  # cannot validate without child birth
+
+            # Check against mother's death: child must be born strictly before mother's death
+            if mother_death is not None and child_birth >= mother_death:
+                errors.append(ValidationError(
+                    fam.get('line', 0), 'US09',
+                    f"Child {displayId(child_id)} born {child_birth.isoformat()} is not before mother's death "
+                    f"({displayId(mother_id)}: {formatGedDate(mother.get('death'))}) in family {displayId(fam_id)}"))
+
+            # Check against father's death: child must be born no more than 9 months after father's death
+            if father_death is not None:
+                # Compute threshold = father_death + 272 days
+                try:
+                    from datetime import timedelta
+                    threshold = father_death.toordinal() + NINE_MONTHS_IN_DAYS
+                    # Convert back to date for comparison
+                    threshold_date = date.fromordinal(threshold)
+                except Exception:
+                    threshold_date = None
+                if threshold_date is not None and child_birth > threshold_date:
+                    errors.append(ValidationError(
+                        fam.get('line', 0), 'US09',
+                        f"Child {displayId(child_id)} born {child_birth.isoformat()} is more than 9 months after father's death "
+                        f"({displayId(father_id)}: {formatGedDate(father.get('death'))}) in family {displayId(fam_id)}"))
+
+    return errors
+
+MIN_MARRIAGE_AGE_YEARS = 14
+
+
+def _iter_spouses(family):
+    husband_id = family.get('husband')
+    if husband_id:
+        yield 'Husband', husband_id
+    wife_id = family.get('wife')
+    if wife_id:
+        yield 'Wife', wife_id
+
+
+def _person_event_date(individuals, person_id, field):
+    person = individuals.get(person_id)
+    if person is None:
+        return None
+    raw = person.get(field)
+    if not raw:
+        return None
+    return parseGedDate(raw)
+
+
+def check_age_at_marriage(individuals, families):
+    errors = []
+    for fam in families.values():
+        married_raw = fam.get('married')
+        married_dt = parseGedDate(married_raw) if married_raw else None
+        if married_dt is None:
+            continue
+        line_no = fam.get('line', 0)
+        fam_label = displayId(fam.get('id', ''))
+        for role, spouse_id in _iter_spouses(fam):
+            birth_dt = _person_event_date(individuals, spouse_id, 'birth')
+            if birth_dt is None:
+                continue
+            spouse_label = displayId(spouse_id)
+            if birth_dt >= married_dt:
+                errors.append(ValidationError(
+                    line_no, 'US02',
+                    f'{role} {spouse_label} in {fam_label} must be born before marriage'))
+                continue
+            if ageYears(birth_dt, married_dt) < MIN_MARRIAGE_AGE_YEARS:
+                errors.append(ValidationError(
+                    line_no, 'US02',
+                    f'{role} {spouse_label} in {fam_label} must be at least '
+                    f'{MIN_MARRIAGE_AGE_YEARS} years old at marriage'))
+    return errors
+
+
+def check_marriage_divorce_death_order(individuals, families):
+    errors = []
+    for fam in families.values():
+        divorced_raw = fam.get('divorced')
+        if not divorced_raw:
+            continue
+        divorced_dt = parseGedDate(divorced_raw)
+        if divorced_dt is None:
+            continue
+        line_no = fam.get('line', 0)
+        fam_label = displayId(fam.get('id', ''))
+        married_raw = fam.get('married')
+        married_dt = parseGedDate(married_raw) if married_raw else None
+        if married_dt is not None and married_dt >= divorced_dt:
+            errors.append(ValidationError(
+                line_no, 'US04',
+                f'Marriage in {fam_label} must occur before divorce'))
+        for role, spouse_id in _iter_spouses(fam):
+            death_dt = _person_event_date(individuals, spouse_id, 'death')
+            if death_dt is None:
+                continue
+            if divorced_dt >= death_dt:
+                errors.append(ValidationError(
+                    line_no, 'US04',
+                    f'Divorce in {fam_label} must occur before '
+                    f'{role.lower()} {displayId(spouse_id)} death'))
+    return errors
+
+
+# US08 - No bigamy: Marriage should not occur during marriage to another spouse
+# Implementation notes:
+# - For each individual, we gather all marriage intervals from their FAM records.
+# - Interval start: family['married'] date (required for consideration). If missing, we skip the interval.
+# - Interval end: earliest of family['divorced'], spouse death, or self death. If none known, it's open-ended (None).
+# - We then perform a simple O(n^2) pairwise overlap check among intervals for that person.
+# - If two intervals overlap, we report a ValidationError with code 'US08'.
+
+def check_no_bigamy(individuals, families):
+    errors = []
+
+    def _fam_interval_for_person(person_id, fam):
+        # Build interval for this person within given family
+        married_raw = fam.get('married')
+        start = parseGedDate(married_raw) if married_raw else None
+        if start is None:
+            return None  # cannot form interval without a start date
+        # Identify spouse and compute end date as earliest of divorce, spouse death, or self death
+        end_candidates = []
+        # Divorce
+        div_raw = fam.get('divorced')
+        if div_raw:
+            div_dt = parseGedDate(div_raw)
+            if div_dt:
+                end_candidates.append(div_dt)
+        # Determine spouse and their death
+        spouse_id = None
+        if fam.get('husband') == person_id:
+            spouse_id = fam.get('wife')
+        elif fam.get('wife') == person_id:
+            spouse_id = fam.get('husband')
+        # Self death
+        self_death = _person_event_date(individuals, person_id, 'death')
+        if self_death is not None:
+            end_candidates.append(self_death)
+        # Spouse death
+        if spouse_id:
+            spouse_death = _person_event_date(individuals, spouse_id, 'death')
+            if spouse_death is not None:
+                end_candidates.append(spouse_death)
+        end = min(end_candidates) if end_candidates else None
+        return (start, end)
+
+    # Build intervals per person (refactored to avoid duplication)
+    intervals_by_person = {}
+    for fam in families.values():
+        for _, person_id in _iter_spouses(fam):
+            interval = _fam_interval_for_person(person_id, fam)
+            if interval is None:
+                continue
+            start, end = interval
+            intervals_by_person.setdefault(person_id, []).append((fam, start, end))
+
+    # Check overlaps per person using sort-and-scan (O(n log n))
+    for person_id, intervals in intervals_by_person.items():
+        intervals.sort(key=lambda x: (x[1] or date.min, x[2] or date.max))
+        prev = None  # (fam, start, end)
+        for current in intervals:
+            fam_c, s_c, e_c = current
+            if s_c is None:
+                continue
+            if prev is None:
+                prev = current
+                continue
+            fam_p, s_p, e_p = prev
+            # Overlap if current start is before or equal to previous end (or previous end is open)
+            if e_p is None or s_c <= e_p:
+                line_no = max(fam_p.get('line', 0), fam_c.get('line', 0))
+                p_label = displayId(person_id)
+                f1 = displayId(fam_p.get('id', ''))
+                f2 = displayId(fam_c.get('id', ''))
+                def fmt(dt):
+                    return dt.isoformat() if dt else 'NA'
+                msg = (f"Individual {p_label} has overlapping marriages between families "
+                       f"{f1} [{fmt(s_p)} - {fmt(e_p)}] and {f2} [{fmt(s_c)} - {fmt(e_c)}]")
+                errors.append(ValidationError(line_no, 'US08', msg))
+                # Merge intervals to continue scanning
+                # Extend previous interval to cover the furthest end to catch chains of overlaps
+                if e_p is None or (e_c is not None and e_c > e_p):
+                    prev = (fam_p, s_p, e_c)
+                # else keep prev as is
+            else:
+                prev = current
     return errors
 
 def validate_gedcom_file(path: str):
