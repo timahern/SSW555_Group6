@@ -207,13 +207,16 @@ def printFamilies(individuals, families):
     print('Families')
     print()
     print(f"{'ID':<4}  {'Married':<10}  {'Divorced':<8}  {'Husband ID':<12}  {'Husband Name':<22}  {'Wife ID':<7}  {'Wife Name':<22}  {'Children'}")
+    # US24: list children ordered by decreasing age (oldest first)
+    ordered_children_by_fam = compute_siblings_by_age(individuals, families)
     for famId in sorted(families.keys(), key=idSortKey):
         fam = families[famId]
         husbId = fam['husband']
         wifeId = fam['wife']
         husbName = individuals.get(husbId, {}).get('name') if husbId else None
         wifeName = individuals.get(wifeId, {}).get('name') if wifeId else None
-        print(f"{displayId(famId):<4}  {formatGedDate(fam['married']):<10}  {formatGedDate(fam['divorced']):<8}  {(displayId(husbId) if husbId else 'NA'):<12}  {(husbName or 'NA'):<22}  {(displayId(wifeId) if wifeId else 'NA'):<7}  {(wifeName or 'NA'):<22}  {formatIdSet(fam['children'])}")
+        children_ordered = ordered_children_by_fam.get(famId, fam.get('children', []))
+        print(f"{displayId(famId):<4}  {formatGedDate(fam['married']):<10}  {formatGedDate(fam['divorced']):<8}  {(displayId(husbId) if husbId else 'NA'):<12}  {(husbName or 'NA'):<22}  {(displayId(wifeId) if wifeId else 'NA'):<7}  {(wifeName or 'NA'):<22}  {formatIdSet(children_ordered)}")
 
 # --- Validation support ---
 from typing import Iterable, List, Dict, Any, Optional, Tuple
