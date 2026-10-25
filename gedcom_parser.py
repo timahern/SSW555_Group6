@@ -207,13 +207,16 @@ def printFamilies(individuals, families):
     print('Families')
     print()
     print(f"{'ID':<4}  {'Married':<10}  {'Divorced':<8}  {'Husband ID':<12}  {'Husband Name':<22}  {'Wife ID':<7}  {'Wife Name':<22}  {'Children'}")
+    # US24: list children ordered by decreasing age (oldest first)
+    ordered_children_by_fam = compute_siblings_by_age(individuals, families)
     for famId in sorted(families.keys(), key=idSortKey):
         fam = families[famId]
         husbId = fam['husband']
         wifeId = fam['wife']
         husbName = individuals.get(husbId, {}).get('name') if husbId else None
         wifeName = individuals.get(wifeId, {}).get('name') if wifeId else None
-        print(f"{displayId(famId):<4}  {formatGedDate(fam['married']):<10}  {formatGedDate(fam['divorced']):<8}  {(displayId(husbId) if husbId else 'NA'):<12}  {(husbName or 'NA'):<22}  {(displayId(wifeId) if wifeId else 'NA'):<7}  {(wifeName or 'NA'):<22}  {formatIdSet(fam['children'])}")
+        children_ordered = ordered_children_by_fam.get(famId, fam.get('children', []))
+        print(f"{displayId(famId):<4}  {formatGedDate(fam['married']):<10}  {formatGedDate(fam['divorced']):<8}  {(displayId(husbId) if husbId else 'NA'):<12}  {(husbName or 'NA'):<22}  {(displayId(wifeId) if wifeId else 'NA'):<7}  {(wifeName or 'NA'):<22}  {formatIdSet(children_ordered)}")
 
 # --- Validation support ---
 from typing import Iterable, List, Dict, Any, Optional, Tuple
@@ -528,6 +531,7 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_age_at_marriage(individuals, families))
     errors.extend(check_marriage_divorce_death_order(individuals, families))
     errors.extend(check_no_bigamy(individuals, families))
+    errors.extend(check_aunt_uncle_marriages(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -863,8 +867,89 @@ def check_sibling_count(individuals, families):
 
     return errors
 
-    
 
+def check_aunt_uncle_marriages(individuals, families):
+    """US17: Aunts and uncles should not marry their nieces or nephews.
+    Identify if any marriage is between an individual and their aunt/uncle.
+    """
+    errors = []
+
+    # Build parents mapping: child_id -> set of parent_ids
+    parents_of = {}
+    children_of_fam = {}
+    for fam in families.values():
+        husb = fam.get('husband')
+        wife = fam.get('wife')
+        children = fam.get('children', []) or []
+        children_of_fam[fam.get('id')] = set(children)
+        for child in children:
+            pset = parents_of.setdefault(child, set())
+            if husb:
+                pset.add(husb)
+            if wife:
+                pset.add(wife)
+
+    # Build siblings mapping via shared family children lists
+    siblings_of = {iid: set() for iid in individuals.keys()}
+    for fam in families.values():
+        kids = fam.get('children', []) or []
+        kidset = set(kids)
+        for kid in kids:
+            siblings_of.setdefault(kid, set()).update(kidset - {kid})
+
+    # Precompute aunts/uncles for each individual: siblings of each parent
+    aunts_uncles_of = {iid: set() for iid in individuals.keys()}
+    for person_id in individuals.keys():
+        au = aunts_uncles_of.setdefault(person_id, set())
+        for parent in parents_of.get(person_id, set()):
+            au.update(siblings_of.get(parent, set()))
+
+    # Check each family marriage for aunt/uncle relation between spouses
+    for fam in families.values():
+        husb = fam.get('husband')
+        wife = fam.get('wife')
+        if not husb or not wife:
+            continue
+        # If either spouse is an aunt/uncle of the other, flag
+        if husb in aunts_uncles_of.get(wife, set()) or wife in aunts_uncles_of.get(husb, set()):
+            h_label = displayId(husb)
+            w_label = displayId(wife)
+            f_label = displayId(fam.get('id', ''))
+            errors.append(
+                ValidationError(
+                    fam.get('line', 0) or 0,
+                    'US17',
+                    f"Family {f_label} has an invalid marriage between aunt/uncle {h_label} and niece/nephew {w_label}"
+                )
+            )
+    return errors
+
+
+def compute_siblings_by_age(individuals, families):
+    """US24: Order siblings by age (oldest first) for each family.
+    Returns a dict mapping family_id -> list of child_ids ordered by decreasing age.
+
+    Ordering rules:
+    - Oldest first (earliest birth date first).
+    - Unknown or invalid birth dates are placed at the end.
+    - Ties (same birth date) are broken by ascending displayId(child_id) for determinism.
+    """
+    from datetime import date as _date
+
+    def _child_sort_key(child_id: str):
+        indi = individuals.get(child_id, {})
+        b_raw = indi.get('birth')
+        b = parseGedDate(b_raw) if b_raw else None
+        # Unknown birth: send to the end (use date.max)
+        b_key = b if b is not None else _date.max
+        return (b_key, displayId(child_id))
+
+    ordered = {}
+    for fam_id, fam in families.items():
+        kids = list(fam.get('children', []) or [])
+        kids.sort(key=_child_sort_key)
+        ordered[fam_id] = kids
+    return ordered
 
 
 if __name__ == '__main__':
