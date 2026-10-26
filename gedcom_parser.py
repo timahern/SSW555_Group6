@@ -523,6 +523,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     _validate_no_duplicate_references(references, errors)
     _validate_corresponding_references(references, individuals, families, errors)
     errors.extend(check_unique_name_and_birth(individuals))
+    errors.extend(check_unique_families_by_spouses(individuals, families))
+    errors.extend(check_unique_first_names_in_families(individuals, families))
     errors.extend(check_multiple_births(individuals, families))
     errors.extend(check_sibling_count(individuals, families))
     errors.extend(check_birth_before_parents_death(individuals, families))
@@ -550,6 +552,52 @@ def check_unique_name_and_birth(individuals):
                 f"{displayId(seen[key])}: {p['name']}, {formatGedDate(p['birth'])}"))
         else:
             seen[key] = indi_id
+    return errors
+
+# US20
+def check_unique_families_by_spouses(individuals, families):
+    """No more than one family with the same spouses by name and the same marriage date."""
+    errors = []
+    seen = {}
+    for fam_id, fam in families.items():
+        married_raw = fam.get('married')
+        if not married_raw:
+            continue
+        husb = individuals.get(fam.get('husband')) if fam.get('husband') else None
+        wife = individuals.get(fam.get('wife')) if fam.get('wife') else None
+        if not husb or not wife or not husb.get('name') or not wife.get('name'):
+            continue
+        key = (
+            tuple(sorted((husb['name'].strip().lower(), wife['name'].strip().lower()))),
+            parseGedDate(married_raw) or married_raw,
+        )
+        if key in seen:
+            errors.append(ValidationError(fam.get('line', 0), 'US20',
+                f"Family {displayId(fam_id)} has the same spouses and marriage date as "
+                f"{displayId(seen[key])}: {husb['name']} and {wife['name']}, "
+                f"{formatGedDate(married_raw)}"))
+        else:
+            seen[key] = fam_id
+    return errors
+
+# US21
+def check_unique_first_names_in_families(individuals, families):
+    """No more than one child with the same name and birth date should appear in a family."""
+    errors = []
+    for fam_id, fam in families.items():
+        seen = {}
+        for child_id in fam.get('children', []):
+            child = individuals.get(child_id)
+            if not child or not child.get('name') or not child.get('birth'):
+                continue
+            key = (child['name'].strip().lower(), parseGedDate(child['birth']) or child['birth'])
+            if key in seen:
+                errors.append(ValidationError(child.get('line', 0), 'US21',
+                    f"Child {displayId(child_id)} has the same name and birth date as "
+                    f"{displayId(seen[key])} in family {displayId(fam_id)}: "
+                    f"{child['name']}, {formatGedDate(child['birth'])}"))
+            else:
+                seen[key] = child_id
     return errors
 
 def _add_months(d, months):
