@@ -532,6 +532,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_marriage_divorce_death_order(individuals, families))
     errors.extend(check_no_bigamy(individuals, families))
     errors.extend(check_aunt_uncle_marriages(individuals, families))
+    errors.extend(check_male_last_names(individuals, families))
+    errors.extend(check_no_marriage_to_descendants(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -603,6 +605,74 @@ def check_birth_after_parents_marriage(individuals, families):
                     f"Child {displayId(child_id)} born {birth.isoformat()} more than 9 months "
                     f"after parents' divorce {divorced.isoformat()} in family {displayId(fam_id)}"))
     return errors
+
+def _surname(name):
+    """Return the surname between slashes, e.g. 'John /Doe/' -> 'Doe'."""
+    if not name or name.count('/') < 2:
+        return None
+    return name.split('/')[1].strip()
+
+
+# US13
+def check_male_last_names(individuals, families):
+    """All male members of a family should have the same last name."""
+    errors = []
+    for fam_id, fam in families.items():
+        members = [fam.get('husband')] + fam.get('children', [])
+        males = [pid for pid in members
+                 if pid in individuals and individuals[pid].get('sex') == 'M']
+        expected = None
+        expected_from = None
+        for pid in males:
+            surname = _surname(individuals[pid].get('name'))
+            if surname is None:
+                continue
+            if expected is None:
+                expected, expected_from = surname, pid
+            elif surname != expected:
+                errors.append(ValidationError(individuals[pid].get('line', 0), 'US13',
+                    f"Male {displayId(pid)} has last name {surname!r}, expected {expected!r} "
+                    f"like {displayId(expected_from)} in family {displayId(fam_id)}"))
+    return errors
+
+
+def _descendants(person_id, families_by_parent):
+    """Return the set of all children, grandchildren, etc. of person_id."""
+    found = set()
+    stack = [person_id]
+    while stack:
+        parent = stack.pop()
+        for fam in families_by_parent.get(parent, []):
+            for child in fam.get('children', []):
+                if child not in found:
+                    found.add(child)
+                    stack.append(child)
+    return found
+
+
+# US14
+def check_no_marriage_to_descendants(individuals, families):
+    """Parents should not marry any of their descendants."""
+    families_by_parent = {}
+    for fam in families.values():
+        for _, spouse_id in _iter_spouses(fam):
+            families_by_parent.setdefault(spouse_id, []).append(fam)
+
+    errors = []
+    for fam_id, fam in families.items():
+        husband, wife = fam.get('husband'), fam.get('wife')
+        if not husband or not wife:
+            continue
+        if wife in _descendants(husband, families_by_parent):
+            errors.append(ValidationError(fam.get('line', 0), 'US14',
+                f"Family {displayId(fam_id)}: husband {displayId(husband)} is married "
+                f"to his descendant {displayId(wife)}"))
+        elif husband in _descendants(wife, families_by_parent):
+            errors.append(ValidationError(fam.get('line', 0), 'US14',
+                f"Family {displayId(fam_id)}: wife {displayId(wife)} is married "
+                f"to her descendant {displayId(husband)}"))
+    return errors
+
 
 # US09 - Birth before death of parents
 # - Child should be born before death of mother
