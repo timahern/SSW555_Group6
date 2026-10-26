@@ -952,7 +952,68 @@ def compute_siblings_by_age(individuals, families):
     return ordered
 
 
+# US25: List all deceased individuals
+def list_deceased(individuals):
+    """Return a list of (id, name, death_date_str) for every individual who has died."""
+    deceased = []
+    for raw_id in sorted(individuals.keys(), key=idSortKey):
+        p = individuals[raw_id]
+        if p.get('death') is not None:
+            deceased.append((raw_id, p.get('name', 'NA'), p['death']))
+    return deceased
+
+
+def print_deceased(individuals):
+    deceased = list_deceased(individuals)
+    print()
+    print('Deceased Individuals (US25)')
+    print()
+    if not deceased:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Death Date'}")
+    for raw_id, name, death_raw in deceased:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {formatGedDate(death_raw)}")
+
+
+# US26: List all living married people
+def list_living_married(individuals, families):
+    
+    result = []
+    seen = set()
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        if fam.get('divorced') is not None:
+            continue
+        for spouse_id in (fam.get('husband'), fam.get('wife')):
+            if not spouse_id or spouse_id in seen:
+                continue
+            person = individuals.get(spouse_id)
+            if person is None:
+                continue
+            if person.get('death') is not None:
+                continue
+            seen.add(spouse_id)
+            result.append((spouse_id, person.get('name', 'NA'), fam_id))
+    return result
+
+
+def print_living_married(individuals, families):
+    living_married = list_living_married(individuals, families)
+    print()
+    print('Living Married Individuals (US26)')
+    print()
+    if not living_married:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Family'}")
+    for raw_id, name, fam_id in living_married:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {displayId(fam_id)}")
+
+
 if __name__ == '__main__':
     individuals, families = parser('JonesThompsonFamily-1.ged')
     printIndividuals(individuals)
     printFamilies(individuals, families)
+    print_deceased(individuals)
+    print_living_married(individuals, families)
