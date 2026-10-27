@@ -1,0 +1,2 @@
+ValidationError(line_no=213, code='US15', message='Family F901: Siblings I902 and I903 should not marry')
+ValidationError(line_no=259, code='US16', message='Family F913: First cousins I916 and I917 should not marry')
