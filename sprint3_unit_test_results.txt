@@ -1,0 +1,311 @@
+test_duplicate_does_not_overwrite_original (test_KSprint1.TestUS18UniqueIDs.test_duplicate_does_not_overwrite_original) ... ok
+test_duplicate_family_id_is_flagged (test_KSprint1.TestUS18UniqueIDs.test_duplicate_family_id_is_flagged) ... ok
+test_duplicate_individual_id_is_flagged (test_KSprint1.TestUS18UniqueIDs.test_duplicate_individual_id_is_flagged) ... ok
+test_unique_ids_not_flagged (test_KSprint1.TestUS18UniqueIDs.test_unique_ids_not_flagged) ... ok
+test_different_name_same_birth_not_flagged (test_KSprint1.TestUS19UniqueNameAndBirth.test_different_name_same_birth_not_flagged) ... ok
+test_same_name_and_birth_is_flagged (test_KSprint1.TestUS19UniqueNameAndBirth.test_same_name_and_birth_is_flagged) ... ok
+test_same_name_different_birth_not_flagged (test_KSprint1.TestUS19UniqueNameAndBirth.test_same_name_different_birth_not_flagged) ... ok
+test_both_spouses_alive_not_flagged (test_KSprint2.TestUS05MarriageBeforeDeath.test_both_spouses_alive_not_flagged) ... ok
+test_both_spouses_died_before_marriage_flagged_twice (test_KSprint2.TestUS05MarriageBeforeDeath.test_both_spouses_died_before_marriage_flagged_twice) ... ok
+test_death_after_marriage_not_flagged (test_KSprint2.TestUS05MarriageBeforeDeath.test_death_after_marriage_not_flagged) ... ok
+test_death_on_wedding_day_not_flagged (test_KSprint2.TestUS05MarriageBeforeDeath.test_death_on_wedding_day_not_flagged) ... ok
+test_husband_died_before_marriage_is_flagged (test_KSprint2.TestUS05MarriageBeforeDeath.test_husband_died_before_marriage_is_flagged) ... ok
+test_wife_died_before_marriage_is_flagged (test_KSprint2.TestUS05MarriageBeforeDeath.test_wife_died_before_marriage_is_flagged) ... ok
+test_born_after_marriage_not_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_after_marriage_not_flagged) ... ok
+test_born_before_marriage_is_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_before_marriage_is_flagged) ... ok
+test_born_exactly_9_months_after_divorce_not_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_exactly_9_months_after_divorce_not_flagged) ... ok
+test_born_more_than_9_months_after_divorce_is_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_more_than_9_months_after_divorce_is_flagged) ... ok
+test_born_on_wedding_day_not_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_on_wedding_day_not_flagged) ... ok
+test_born_within_9_months_after_divorce_not_flagged (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_born_within_9_months_after_divorce_not_flagged) ... ok
+test_month_end_divorce_clamps_to_end_of_february (test_KSprint2.TestUS06BirthAfterParentsMarriage.test_month_end_divorce_clamps_to_end_of_february) ... ok
+test_daughter_with_different_surname_not_flagged (test_KSprint3.TestUS13MaleLastNames.test_daughter_with_different_surname_not_flagged) ... ok
+test_father_and_son_same_surname_not_flagged (test_KSprint3.TestUS13MaleLastNames.test_father_and_son_same_surname_not_flagged) ... ok
+test_name_without_surname_is_skipped (test_KSprint3.TestUS13MaleLastNames.test_name_without_surname_is_skipped) ... ok
+test_no_father_compares_sons_to_first_son (test_KSprint3.TestUS13MaleLastNames.test_no_father_compares_sons_to_first_son) ... ok
+test_only_mismatched_son_flagged (test_KSprint3.TestUS13MaleLastNames.test_only_mismatched_son_flagged) ... ok
+test_son_with_different_surname_flagged (test_KSprint3.TestUS13MaleLastNames.test_son_with_different_surname_flagged) ... ok
+test_father_marries_daughter_flagged (test_KSprint3.TestUS14NoMarriageToDescendants.test_father_marries_daughter_flagged) ... ok
+test_grandfather_marries_granddaughter_flagged (test_KSprint3.TestUS14NoMarriageToDescendants.test_grandfather_marries_granddaughter_flagged) ... ok
+test_mother_marries_son_flagged (test_KSprint3.TestUS14NoMarriageToDescendants.test_mother_marries_son_flagged) ... ok
+test_self_referencing_family_does_not_loop (test_KSprint3.TestUS14NoMarriageToDescendants.test_self_referencing_family_does_not_loop) ... ok
+test_uncle_marries_niece_not_flagged (test_KSprint3.TestUS14NoMarriageToDescendants.test_uncle_marries_niece_not_flagged) ... ok
+test_unrelated_spouses_not_flagged (test_KSprint3.TestUS14NoMarriageToDescendants.test_unrelated_spouses_not_flagged) ... ok
+test_current_age (test_ages.TestIndividualAges.test_current_age) ... ok
+test_famc_must_correspond_to_child (test_corresponding_entries.TestCorrespondingFamilyEntries.test_famc_must_correspond_to_child) ... ok
+test_famc_without_matching_child_is_error (test_corresponding_entries.TestCorrespondingFamilyEntries.test_famc_without_matching_child_is_error) ... ok
+test_formatGedDate_with_partial_and_invalid (test_dates.TestGedcomDates.test_formatGedDate_with_partial_and_invalid) ... ok
+test_invalid_inputs_return_none (test_dates.TestGedcomDates.test_invalid_inputs_return_none) ... ok
+test_parse_full_date (test_dates.TestGedcomDates.test_parse_full_date) ... ok
+test_parse_month_year_defaults_day_to_first (test_dates.TestGedcomDates.test_parse_month_year_defaults_day_to_first) ... ok
+test_parse_year_only_defaults_to_jan_first (test_dates.TestGedcomDates.test_parse_year_only_defaults_to_jan_first) ... ok
+test_child_pointing_to_a_family_is_wrong_type (test_references.TestUS38ValidReferences.test_child_pointing_to_a_family_is_wrong_type) ... ok
+test_child_pointing_to_nobody (test_references.TestUS38ValidReferences.test_child_pointing_to_nobody) ... ok
+test_clean_family_passes (test_references.TestUS38ValidReferences.test_clean_family_passes) ... ok
+test_individual_pointing_to_missing_family (test_references.TestUS38ValidReferences.test_individual_pointing_to_missing_family) ... ok
+test_spouse_pointing_to_nobody (test_references.TestUS38ValidReferences.test_spouse_pointing_to_nobody) ... ok
+test_child_listed_three_times_reports_each_extra (test_references.TestUS41NoDuplicateReferences.test_child_listed_three_times_reports_each_extra) ... ok
+test_child_listed_twice_in_one_family (test_references.TestUS41NoDuplicateReferences.test_child_listed_twice_in_one_family) ... ok
+test_clean_family_passes (test_references.TestUS41NoDuplicateReferences.test_clean_family_passes) ... ok
+test_same_child_in_two_families_is_allowed (test_references.TestUS41NoDuplicateReferences.test_same_child_in_two_families_is_allowed) ... ok
+test_spouse_family_listed_twice_on_individual (test_references.TestUS41NoDuplicateReferences.test_spouse_family_listed_twice_on_individual) ... ok
+test_birth_on_marriage_date_is_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_birth_on_marriage_date_is_flagged) ... ok
+test_both_spouses_can_be_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_both_spouses_can_be_flagged) ... ok
+test_day_before_14th_birthday_is_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_day_before_14th_birthday_is_flagged) ... ok
+test_exactly_14_is_not_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_exactly_14_is_not_flagged) ... ok
+test_spouse_born_after_marriage_is_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_spouse_born_after_marriage_is_flagged) ... ok
+test_spouse_under_14_is_flagged (test_us02_us04.TestUS02AgeAtMarriage.test_spouse_under_14_is_flagged) ... ok
+test_both_deaths_before_divorce_are_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_both_deaths_before_divorce_are_flagged) ... ok
+test_divorce_after_husband_death_is_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_after_husband_death_is_flagged) ... ok
+test_divorce_after_wife_death_is_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_after_wife_death_is_flagged) ... ok
+test_divorce_before_marriage_and_after_death (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_before_marriage_and_after_death) ... ok
+test_divorce_before_marriage_is_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_before_marriage_is_flagged) ... ok
+test_divorce_on_death_date_is_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_on_death_date_is_flagged) ... ok
+test_divorce_on_marriage_date_is_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_divorce_on_marriage_date_is_flagged) ... ok
+test_no_divorce_does_not_flag_death_order (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_no_divorce_does_not_flag_death_order) ... ok
+test_valid_order_is_not_flagged (test_us02_us04.TestUS04MarriageDivorceDeathOrder.test_valid_order_is_not_flagged) ... ok
+test_child_after_mothers_death_is_flagged (test_us07_birth_before_parents_death.TestUS09BirthBeforeParentsDeath.test_child_after_mothers_death_is_flagged) ... ok
+test_child_more_than_9_months_after_fathers_death_is_flagged (test_us07_birth_before_parents_death.TestUS09BirthBeforeParentsDeath.test_child_more_than_9_months_after_fathers_death_is_flagged) ... ok
+test_child_within_9_months_after_fathers_death_is_ok (test_us07_birth_before_parents_death.TestUS09BirthBeforeParentsDeath.test_child_within_9_months_after_fathers_death_is_ok) ... ok
+test_missing_dates_skip_checks (test_us07_birth_before_parents_death.TestUS09BirthBeforeParentsDeath.test_missing_dates_skip_checks) ... ok
+test_divorce_before_second_marriage_is_ok (test_us08_no_bigamy.TestUS08NoBigamy.test_divorce_before_second_marriage_is_ok) ... ok
+test_missing_marriage_date_skips_interval (test_us08_no_bigamy.TestUS08NoBigamy.test_missing_marriage_date_skips_interval) ... ok
+test_overlapping_marriages_are_flagged (test_us08_no_bigamy.TestUS08NoBigamy.test_overlapping_marriages_are_flagged) ... ok
+test_spouse_death_allows_new_marriage (test_us08_no_bigamy.TestUS08NoBigamy.test_spouse_death_allows_new_marriage) ... ok
+test_both_parents_too_old (test_us09.TestUS09.test_both_parents_too_old) ... ok
+test_father_79_is_ok (test_us09.TestUS09.test_father_79_is_ok) ... ok
+test_father_too_old (test_us09.TestUS09.test_father_too_old) ... ok
+test_missing_birth_dates_skipped (test_us09.TestUS09.test_missing_birth_dates_skipped) ... ok
+test_missing_spouse_skipped (test_us09.TestUS09.test_missing_spouse_skipped) ... ok
+test_mother_exactly_60_is_error (test_us09.TestUS09.test_mother_exactly_60_is_error) ... ok
+test_mother_one_day_under_60_is_ok (test_us09.TestUS09.test_mother_one_day_under_60_is_ok) ... ok
+test_mother_too_old (test_us09.TestUS09.test_mother_too_old) ... ok
+test_no_children (test_us09.TestUS09.test_no_children) ... ok
+test_normal_family_no_errors (test_us09.TestUS09.test_normal_family_no_errors) ... ok
+test_missing_birth_date_skipped (test_us10.TestUS10.test_missing_birth_date_skipped) ... ok
+test_no_children (test_us10.TestUS10.test_no_children) ... ok
+test_siblings_2_days_apart_is_error (test_us10.TestUS10.test_siblings_2_days_apart_is_error) ... ok
+test_siblings_5_months_apart_is_error (test_us10.TestUS10.test_siblings_5_months_apart_is_error) ... ok
+test_siblings_exactly_8_months_apart_is_error (test_us10.TestUS10.test_siblings_exactly_8_months_apart_is_error) ... ok
+test_siblings_just_under_8_months_is_error (test_us10.TestUS10.test_siblings_just_under_8_months_is_error) ... ok
+test_siblings_more_than_8_months_apart (test_us10.TestUS10.test_siblings_more_than_8_months_apart) ... ok
+test_single_child (test_us10.TestUS10.test_single_child) ... ok
+test_three_siblings_multiple_errors (test_us10.TestUS10.test_three_siblings_multiple_errors) ... ok
+test_twins_one_day_apart (test_us10.TestUS10.test_twins_one_day_apart) ... ok
+test_twins_same_day (test_us10.TestUS10.test_twins_same_day) ... ok
+test_us11_five_births_allowed (test_us11_us12.TestMultipleBirthsAndSiblings.test_us11_five_births_allowed) ... ok
+test_us11_six_births_rejected (test_us11_us12.TestMultipleBirthsAndSiblings.test_us11_six_births_rejected) ... ok
+test_us12_fifteen_children_rejected (test_us11_us12.TestMultipleBirthsAndSiblings.test_us12_fifteen_children_rejected) ... ok
+test_us12_fourteen_children_allowed (test_us11_us12.TestMultipleBirthsAndSiblings.test_us12_fourteen_children_allowed) ... ok
+test_us12_sixteen_children_rejected (test_us11_us12.TestMultipleBirthsAndSiblings.test_us12_sixteen_children_rejected) ... ok
+test_siblings_married (test_us15_us16.TestUS15.test_siblings_married) ... ok
+test_unrelated_people_married (test_us15_us16.TestUS15.test_unrelated_people_married) ... ok
+test_first_cousins_married (test_us15_us16.TestUS16.test_first_cousins_married) ... ok
+test_unrelated_people_married (test_us15_us16.TestUS16.test_unrelated_people_married) ... ok
+test_cousins_marrying_is_allowed (test_us17.TestUS17AuntUncleMarriages.test_cousins_marrying_is_allowed) ... ok
+test_missing_parent_info_does_not_flag (test_us17.TestUS17AuntUncleMarriages.test_missing_parent_info_does_not_flag) ... ok
+test_uncle_marries_niece_is_flagged (test_us17.TestUS17AuntUncleMarriages.test_uncle_marries_niece_is_flagged) ... ok
+test_siblings_ordered_oldest_first (test_us24.TestUS24SiblingsOrderedByAge.test_siblings_ordered_oldest_first) ... ok
+test_tie_breaker_same_birth_date_by_id (test_us24.TestUS24SiblingsOrderedByAge.test_tie_breaker_same_birth_date_by_id) ... ok
+test_unknown_birth_dates_go_last (test_us24.TestUS24SiblingsOrderedByAge.test_unknown_birth_dates_go_last) ... ok
+test_empty_when_no_deaths (test_us25_us26.TestUS25ListDeceased.test_empty_when_no_deaths) ... ok
+test_includes_name_and_death_date (test_us25_us26.TestUS25ListDeceased.test_includes_name_and_death_date) ... ok
+test_living_not_included (test_us25_us26.TestUS25ListDeceased.test_living_not_included) ... ok
+test_returns_only_deceased (test_us25_us26.TestUS25ListDeceased.test_returns_only_deceased) ... ok
+test_deceased_spouse_excluded (test_us25_us26.TestUS26ListLivingMarried.test_deceased_spouse_excluded) ... ok
+test_divorced_excluded (test_us25_us26.TestUS26ListLivingMarried.test_divorced_excluded) ... ok
+test_empty_when_all_dead (test_us25_us26.TestUS26ListLivingMarried.test_empty_when_all_dead) ... ok
+test_returns_living_married (test_us25_us26.TestUS26ListLivingMarried.test_returns_living_married) ... ok
+test_unmarried_excluded (test_us25_us26.TestUS26ListLivingMarried.test_unmarried_excluded) ... ok
+test_date_without_parent_event_is_flagged (test_validation.TestGedcomValidation.test_date_without_parent_event_is_flagged) ... ok
+test_family_missing_marr_date (test_validation.TestGedcomValidation.test_family_missing_marr_date) ... ok
+test_future_event_dates (test_validation.TestGedcomValidation.test_future_event_dates) ... ok
+test_individual_missing_birth_date (test_validation.TestGedcomValidation.test_individual_missing_birth_date) ... ok
+test_invalid_calendar_date (test_validation.TestGedcomValidation.test_invalid_calendar_date) ... ok
+test_invalid_sex_value (test_validation.TestGedcomValidation.test_invalid_sex_value) ... ok
+test_lifespan (test_validation.TestGedcomValidation.test_lifespan) ... ok
+test_name_without_surname_slashes (test_validation.TestGedcomValidation.test_name_without_surname_slashes) ... ok
+
+----------------------------------------------------------------------
+Ran 126 tests in 0.006s
+
+OK
+[TEST] US18: Original individual data should be preserved when duplicate ID appears later
+[PASS] US18: Original individual data should be preserved when duplicate ID appears later
+[TEST] US18: Duplicate family ID should be flagged at the second occurrence line
+[PASS] US18: Duplicate family ID should be flagged at the second occurrence line
+[TEST] US18: Duplicate individual ID should be flagged at the second occurrence line
+[PASS] US18: Duplicate individual ID should be flagged at the second occurrence line
+[TEST] US18: Unique individual and family IDs should not produce US18 errors
+[PASS] US18: Unique individual and family IDs should not produce US18 errors
+[TEST] US19: Different NAME with same BIRT should not be flagged
+[PASS] US19: Different NAME with same BIRT should not be flagged
+[TEST] US19: Two individuals with same NAME and BIRT should be flagged at second individual's line
+[PASS] US19: Two individuals with same NAME and BIRT should be flagged at second individual's line
+[TEST] US19: Same NAME but different BIRT should not be flagged
+[PASS] US19: Same NAME but different BIRT should not be flagged
+[TEST] US05: Family where both spouses are alive should not be flagged
+[PASS] US05: Family where both spouses are alive should not be flagged
+[TEST] US05: Marriage after both spouses' deaths should produce two errors
+[PASS] US05: Marriage after both spouses' deaths should produce two errors
+[TEST] US05: Spouse dying after the marriage should not be flagged
+[PASS] US05: Spouse dying after the marriage should not be flagged
+[TEST] US05: Spouse dying on the wedding day should not be flagged
+[PASS] US05: Spouse dying on the wedding day should not be flagged
+[TEST] US05: Marriage after husband's death should be flagged at the family's line
+[PASS] US05: Marriage after husband's death should be flagged at the family's line
+[TEST] US05: Marriage after wife's death should be flagged and name the wife
+[PASS] US05: Marriage after wife's death should be flagged and name the wife
+[TEST] US06: Child born after parents' marriage should not be flagged
+[PASS] US06: Child born after parents' marriage should not be flagged
+[TEST] US06: Child born before parents' marriage should be flagged at the child's line
+[PASS] US06: Child born before parents' marriage should be flagged at the child's line
+[TEST] US06: Child born exactly 9 months after divorce should not be flagged
+[PASS] US06: Child born exactly 9 months after divorce should not be flagged
+[TEST] US06: Child born more than 9 months after divorce should be flagged
+[PASS] US06: Child born more than 9 months after divorce should be flagged
+[TEST] US06: Child born on the wedding day should not be flagged
+[PASS] US06: Child born on the wedding day should not be flagged
+[TEST] US06: Child born within 9 months after divorce should not be flagged
+[PASS] US06: Child born within 9 months after divorce should not be flagged
+[TEST] US06: Divorce on 31 MAY allows births through 28 FEB, not 1 MAR
+[PASS] US06: Divorce on 31 MAY allows births through 28 FEB, not 1 MAR
+[TEST] US13: Daughter with a different last name should not be flagged
+[PASS] US13: Daughter with a different last name should not be flagged
+[TEST] US13: Father and son with the same last name should not be flagged
+[PASS] US13: Father and son with the same last name should not be flagged
+[TEST] US13: A name with no /surname/ is skipped rather than flagged
+[PASS] US13: A name with no /surname/ is skipped rather than flagged
+[TEST] US13: Without a husband, sons are compared to the first son
+[PASS] US13: Without a husband, sons are compared to the first son
+[TEST] US13: With two sons, only the one with a different last name is flagged
+[PASS] US13: With two sons, only the one with a different last name is flagged
+[TEST] US13: Son with a different last name should be flagged at the son's line
+[PASS] US13: Son with a different last name should be flagged at the son's line
+[TEST] US14: Father marrying his daughter should be flagged
+[PASS] US14: Father marrying his daughter should be flagged
+[TEST] US14: Grandfather marrying his granddaughter should be flagged
+[PASS] US14: Grandfather marrying his granddaughter should be flagged
+[TEST] US14: Mother marrying her son should be flagged
+[PASS] US14: Mother marrying her son should be flagged
+[TEST] US14: A corrupt family listing a spouse as their own child finishes and is flagged
+[PASS] US14: A corrupt family listing a spouse as their own child finishes and is flagged
+[TEST] US14: Uncle marrying his niece is not a descendant marriage (that's US17)
+[PASS] US14: Uncle marrying his niece is not a descendant marriage (that's US17)
+[TEST] US14: Unrelated spouses should not be flagged
+[PASS] US14: Unrelated spouses should not be flagged
+[TEST] ageYears computes age 27 from birth 1999-07-01 as of 2026-09-27
+[PASS] ageYears computes age 27 from birth 1999-07-01 as of 2026-09-27
+[TEST] FAMC on child must correspond to CHIL in the referenced family
+[PASS] FAMC on child must correspond to CHIL in the referenced family
+[TEST] FAMC reference without corresponding CHIL in family should be REF_MISMATCH error
+[PASS] FAMC reference without corresponding CHIL in family should be REF_MISMATCH error
+[TEST] formatGedDate normalizes partials and returns 'NA' for invalid inputs
+[PASS] formatGedDate normalizes partials and returns 'NA' for invalid inputs
+[TEST] parseGedDate returns None for invalid inputs and 'Y'/'': FOO 1990, 30 FEB 2015, 31 APR 2000, '', 'Y'
+[PASS] parseGedDate returns None for invalid inputs and 'Y'/'': FOO 1990, 30 FEB 2015, 31 APR 2000, '', 'Y'
+[TEST] parseGedDate parses '15 MAR 1990' into date(1990,3,15)
+[PASS] parseGedDate parses '15 MAR 1990' into date(1990,3,15)
+[TEST] parseGedDate defaults day to 1 for 'MAR 1990'
+[PASS] parseGedDate defaults day to 1 for 'MAR 1990'
+[TEST] parseGedDate defaults to Jan 1 for '1990'
+[PASS] parseGedDate defaults to Jan 1 for '1990'
+[TEST] US38: CHIL referencing a family ID should report REF_MISSING
+[PASS] US38: CHIL referencing a family ID should report REF_MISSING
+[TEST] US38: CHIL pointing to non-existent individual should report REF_MISSING with @I99@ in message
+[PASS] US38: CHIL pointing to non-existent individual should report REF_MISSING with @I99@ in message
+[TEST] US38: Clean family should have no REF_MISSING errors
+[PASS] US38: Clean family should have no REF_MISSING errors
+[TEST] US38: Individual with FAMS to missing family should report REF_MISSING with FAMS @F99@
+[PASS] US38: Individual with FAMS to missing family should report REF_MISSING with FAMS @F99@
+[TEST] US38: WIFE pointing to non-existent individual should report REF_MISSING
+[PASS] US38: WIFE pointing to non-existent individual should report REF_MISSING
+[TEST] US41: Child listed three times should report two REF_DUPLICATE errors
+[PASS] US41: Child listed three times should report two REF_DUPLICATE errors
+[TEST] US41: Duplicate CHIL entries in one family should report a single REF_DUPLICATE
+[PASS] US41: Duplicate CHIL entries in one family should report a single REF_DUPLICATE
+[TEST] US41: Clean family should have no REF_DUPLICATE errors
+[PASS] US41: Clean family should have no REF_DUPLICATE errors
+[TEST] US41: Same child in two different families should not be a duplicate error
+[PASS] US41: Same child in two different families should not be a duplicate error
+[TEST] US41: Duplicate FAMS entries on an individual should report REF_DUPLICATE
+[PASS] US41: Duplicate FAMS entries on an individual should report REF_DUPLICATE
+[TEST] US02: Birth on the marriage date is not before marriage
+[PASS] US02: Birth on the marriage date is not before marriage
+[TEST] US02: Both spouses under 14 produce two US02 errors
+[PASS] US02: Both spouses under 14 produce two US02 errors
+[TEST] US02: Marriage the day before the 14th birthday is flagged
+[PASS] US02: Marriage the day before the 14th birthday is flagged
+[TEST] US02: A spouse who turns 14 on the marriage date is allowed
+[PASS] US02: A spouse who turns 14 on the marriage date is allowed
+[TEST] US02: Spouse born after marriage is flagged at the family line
+[PASS] US02: Spouse born after marriage is flagged at the family line
+[TEST] US02: Spouse younger than 14 at marriage is flagged
+[PASS] US02: Spouse younger than 14 at marriage is flagged
+[TEST] US04: Divorce after both deaths produces two US04 errors
+[PASS] US04: Divorce after both deaths produces two US04 errors
+[TEST] US04: Divorce after the husband death is flagged
+[PASS] US04: Divorce after the husband death is flagged
+[TEST] US04: Divorce after the wife death is flagged
+[PASS] US04: Divorce after the wife death is flagged
+[TEST] US04: Impossible marriage-divorce order and divorce-death order are both reported
+[PASS] US04: Impossible marriage-divorce order and divorce-death order are both reported
+[TEST] US04: Divorce before marriage is flagged at the family line
+[PASS] US04: Divorce before marriage is flagged at the family line
+[TEST] US04: Divorce on a spouse death date is an impossible order
+[PASS] US04: Divorce on a spouse death date is an impossible order
+[TEST] US04: Divorce on the marriage date is an impossible order
+[PASS] US04: Divorce on the marriage date is an impossible order
+[TEST] US04: A marriage with no divorce does not report US04
+[PASS] US04: A marriage with no divorce does not report US04
+[TEST] US04: Marriage, then divorce, then death is allowed
+[PASS] US04: Marriage, then divorce, then death is allowed
+[TEST] US09: child on/after mother's death is flagged
+[PASS] US09: child on/after mother's death is flagged
+[TEST] US09: child >9 months after father's death is flagged
+[PASS] US09: child >9 months after father's death is flagged
+[TEST] US09: child within 9 months after father's death passes
+[PASS] US09: child within 9 months after father's death passes
+[TEST] US09: missing dates skip checks (no US09 errors)
+[PASS] US09: missing dates skip checks (no US09 errors)
+[TEST] US08: divorce before second marriage passes
+[PASS] US08: divorce before second marriage passes
+[TEST] US08: missing MARR date does not raise US08 (though FAM_MARR may appear)
+[PASS] US08: missing MARR date does not raise US08 (though FAM_MARR may appear)
+[TEST] US08: overlapping marriages produce error
+[PASS] US08: overlapping marriages produce error
+[TEST] US08: spouse death before new marriage passes
+[PASS] US08: spouse death before new marriage passes
+[TEST] US17: cousins marrying should not be flagged
+[PASS] US17: cousins marrying should not be flagged
+[TEST] US17: lack of parents info should not create false positives
+[PASS] US17: lack of parents info should not create false positives
+[TEST] US17: uncle marrying niece should be flagged
+[PASS] US17: uncle marrying niece should be flagged
+[TEST] US24: siblings ordered oldest first
+[PASS] US24: siblings ordered oldest first
+[TEST] US24: tie-breaker by displayId for same birth date
+[PASS] US24: tie-breaker by displayId for same birth date
+[TEST] US24: unknown birth dates go last
+[PASS] US24: unknown birth dates go last
+[TEST] Level-2 DATE without parent event (BIRT/DEAT/MARR/DIV) is flagged as DATE_PARENT at correct line
+[PASS] Level-2 DATE without parent event (BIRT/DEAT/MARR/DIV) is flagged as DATE_PARENT at correct line
+[TEST] FAM with MARR but missing DATE is flagged as FAM_MARR
+[PASS] FAM with MARR but missing DATE is flagged as FAM_MARR
+[TEST] Future-dated events are flagged as DATE_FUTURE (case 1)
+[PASS] Future-dated events are flagged as DATE_FUTURE (case 1)
+[TEST] Future-dated events are flagged as DATE_FUTURE (case 2)
+[PASS] Future-dated events are flagged as DATE_FUTURE (case 2)
+[TEST] Future-dated events are flagged as DATE_FUTURE (case 3)
+[PASS] Future-dated events are flagged as DATE_FUTURE (case 3)
+[TEST] Future-dated events are flagged as DATE_FUTURE (case 4)
+[PASS] Future-dated events are flagged as DATE_FUTURE (case 4)
+[TEST] Individual missing birth date after BIRT is flagged as INDI_BIRT
+[PASS] Individual missing birth date after BIRT is flagged as INDI_BIRT
+[TEST] Invalid calendar date is flagged as DATE_FORMAT
+[PASS] Invalid calendar date is flagged as DATE_FORMAT
+[TEST] Invalid SEX value is flagged as INDI_SEX
+[PASS] Invalid SEX value is flagged as INDI_SEX
+[TEST] Individual with DEAT before BIRT is flagged as INDI_LIFESPAN
+[PASS] Individual with DEAT before BIRT is flagged as INDI_LIFESPAN
+[TEST] NAME without /surname/ delimiters is flagged as INDI_NAME
+[PASS] NAME without /surname/ delimiters is flagged as INDI_NAME
