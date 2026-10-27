@@ -534,6 +534,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_aunt_uncle_marriages(individuals, families))
     errors.extend(check_male_last_names(individuals, families))
     errors.extend(check_no_marriage_to_descendants(individuals, families))
+    errors.extend(check_siblings_should_not_marry(individuals, families))
+    errors.extend(check_first_cousins_should_not_marry(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -1080,6 +1082,88 @@ def print_living_married(individuals, families):
     for raw_id, name, fam_id in living_married:
         print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {displayId(fam_id)}")
 
+# US15 - Siblings should not marry
+def check_siblings_should_not_marry(individuals, families):
+    errors = []
+
+    # Find siblings by looking at children in each family
+    siblings = {}
+
+    for family in families.values():
+        children = family.get('children', [])
+
+        for child in children:
+            siblings.setdefault(child, set()).update(
+                sibling for sibling in children if sibling != child
+            )
+
+    # Check if any married couple are siblings
+    for fam_id, family in families.items():
+        husband = family.get('husband')
+        wife = family.get('wife')
+
+        if husband and wife and wife in siblings.get(husband, set()):
+            errors.append(
+                ValidationError(
+                    family.get('line', 0),
+                    'US15',
+                    f"Family {displayId(fam_id)}: "
+                    f"Siblings {displayId(husband)} and "
+                    f"{displayId(wife)} should not marry"
+                )
+            )
+
+    return errors
+
+# US16 - First cousins should not marry
+def check_first_cousins_should_not_marry(individuals, families):
+    errors = []
+
+    # Map each child to their parents
+    parents = {}
+
+    for family in families.values():
+        husband = family.get('husband')
+        wife = family.get('wife')
+
+        for child in family.get('children', []):
+            if husband:
+                parents.setdefault(child, set()).add(husband)
+            if wife:
+                parents.setdefault(child, set()).add(wife)
+
+    # Two people are siblings if they share a parent
+    def are_siblings(person1, person2):
+        return bool(
+            parents.get(person1, set()) &
+            parents.get(person2, set())
+        )
+
+    # First cousins have parents who are siblings
+    def are_first_cousins(person1, person2):
+        for parent1 in parents.get(person1, set()):
+            for parent2 in parents.get(person2, set()):
+                if parent1 != parent2 and are_siblings(parent1, parent2):
+                    return True
+        return False
+
+    # Check each married couple
+    for fam_id, family in families.items():
+        husband = family.get('husband')
+        wife = family.get('wife')
+
+        if husband and wife and are_first_cousins(husband, wife):
+            errors.append(
+                ValidationError(
+                    family.get('line', 0),
+                    'US16',
+                    f"Family {displayId(fam_id)}: "
+                    f"First cousins {displayId(husband)} and "
+                    f"{displayId(wife)} should not marry"
+                )
+            )
+
+    return errors
 
 if __name__ == '__main__':
     individuals, families = parser('JonesThompsonFamily-1.ged')
