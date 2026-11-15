@@ -1213,9 +1213,87 @@ def check_first_cousins_should_not_marry(individuals, families):
 
     return errors
 
+# US27: List all living people over 30 who have never been married
+def list_living_single(individuals):
+    """Return a list of (id, name, age) for every living individual over 30
+    who has never been married (empty fams list)."""
+    result = []
+    today = date.today()
+    for raw_id in sorted(individuals.keys(), key=idSortKey):
+        p = individuals[raw_id]
+        # Must be alive
+        if p.get('death') is not None:
+            continue
+        # Must have never been married (no FAMS entries)
+        if p.get('fams'):
+            continue
+        # Must have a birth date and be over 30
+        birth = parseGedDate(p.get('birth'))
+        if birth is None:
+            continue
+        age = ageYears(birth, today)
+        if age > 30:
+            result.append((raw_id, p.get('name', 'NA'), age))
+    return result
+
+
+def print_living_single(individuals):
+    singles = list_living_single(individuals)
+    print()
+    print('Living Single Individuals Over 30 (US27)')
+    print()
+    if not singles:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Age'}")
+    for raw_id, name, age in singles:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {age}")
+
+
+# US28: List all multiple births in a GEDCOM file
+def list_multiple_births(individuals, families):
+    """Return a list of (family_id, birth_date_str, [child_ids]) for every
+    group of siblings in the same family born on the same date."""
+    result = []
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        # Group children by birth date string
+        by_date = {}
+        for child_id in fam.get('children', []):
+            child = individuals.get(child_id)
+            if child is None:
+                continue
+            birth_raw = child.get('birth')
+            if not birth_raw:
+                continue
+            by_date.setdefault(birth_raw, []).append(child_id)
+        # Keep only groups with 2+ children (multiple births)
+        for birth_raw, child_ids in sorted(by_date.items(),
+                                            key=lambda x: parseGedDate(x[0]) or date.min):
+            if len(child_ids) >= 2:
+                result.append((fam_id, birth_raw, child_ids))
+    return result
+
+
+def print_multiple_births(individuals, families):
+    groups = list_multiple_births(individuals, families)
+    print()
+    print('Multiple Births (US28)')
+    print()
+    if not groups:
+        print('  None')
+        return
+    print(f"  {'Family':<6}  {'Birth Date':<12}  {'Children'}")
+    for fam_id, birth_raw, child_ids in groups:
+        children_str = ', '.join(displayId(c) for c in child_ids)
+        print(f"  {displayId(fam_id):<6}  {formatGedDate(birth_raw):<12}  {children_str}")
+
+
 if __name__ == '__main__':
     individuals, families = parser('JonesThompsonFamily-1.ged')
     printIndividuals(individuals)
     printFamilies(individuals, families)
     print_deceased(individuals)
     print_living_married(individuals, families)
+    print_living_single(individuals)
+    print_multiple_births(individuals, families)
