@@ -1345,6 +1345,102 @@ def print_multiple_births(individuals, families):
         print(f"  {displayId(fam_id):<6}  {formatGedDate(birth_raw):<12}  {children_str}")
 
 
+# US29: List all orphaned children
+def list_orphans(individuals, families):
+    """Return a list of (id, name, age) for every living child younger than 18
+    whose mother and father are both dead."""
+    result = []
+    seen = set()
+    today = date.today()
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        husb_id = fam.get('husband')
+        wife_id = fam.get('wife')
+        if not husb_id or not wife_id:
+            continue
+        husb = individuals.get(husb_id)
+        wife = individuals.get(wife_id)
+        if husb is None or wife is None:
+            continue
+        # Both parents must be dead
+        if husb.get('death') is None or wife.get('death') is None:
+            continue
+        for child_id in fam.get('children', []):
+            if child_id in seen:
+                continue
+            child = individuals.get(child_id)
+            if child is None:
+                continue
+            # Child must be alive and younger than 18
+            if child.get('death') is not None:
+                continue
+            birth = parseGedDate(child.get('birth'))
+            if birth is None:
+                continue
+            age = ageYears(birth, today)
+            if age < 18:
+                seen.add(child_id)
+                result.append((child_id, child.get('name', 'NA'), age))
+    result.sort(key=lambda row: idSortKey(row[0]))
+    return result
+
+
+def print_orphans(individuals, families):
+    orphans = list_orphans(individuals, families)
+    print()
+    print('Orphaned Children (US29)')
+    print()
+    if not orphans:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Age'}")
+    for raw_id, name, age in orphans:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {age}")
+
+
+# US30: List couples with a large age difference at marriage
+def list_large_age_differences(individuals, families):
+    """Return (family_id, husband_id, husband_name, husband_age, wife_id,
+    wife_name, wife_age) for each couple married when the older spouse was
+    more than twice as old as the younger spouse."""
+    result = []
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        husb_id = fam.get('husband')
+        wife_id = fam.get('wife')
+        husb = individuals.get(husb_id) if husb_id else None
+        wife = individuals.get(wife_id) if wife_id else None
+        married = parseGedDate(fam.get('married')) if fam.get('married') else None
+        if husb is None or wife is None or married is None:
+            continue
+        husb_birth = parseGedDate(husb.get('birth'))
+        wife_birth = parseGedDate(wife.get('birth'))
+        if husb_birth is None or wife_birth is None:
+            continue
+        husb_age = ageYears(husb_birth, married)
+        wife_age = ageYears(wife_birth, married)
+        if husb_age < 0 or wife_age < 0:
+            continue
+        # Older spouse was more than twice as old as the younger spouse
+        if max(husb_age, wife_age) > 2 * min(husb_age, wife_age):
+            result.append((fam_id, husb_id, husb.get('name', 'NA'), husb_age,
+                           wife_id, wife.get('name', 'NA'), wife_age))
+    return result
+
+
+def print_large_age_differences(individuals, families):
+    couples = list_large_age_differences(individuals, families)
+    print()
+    print('Large Age Differences (US30)')
+    print()
+    if not couples:
+        print('  None')
+        return
+    print(f"  {'Family':<6}  {'Husband ID':<10}  {'Husband Name':<22}  {'H Age':<5}  {'Wife ID':<8}  {'Wife Name':<22}  {'W Age'}")
+    for fam_id, husb_id, husb_name, husb_age, wife_id, wife_name, wife_age in couples:
+        print(f"  {displayId(fam_id):<6}  {displayId(husb_id):<10}  {(husb_name or 'NA'):<22}  {husb_age:<5}  {displayId(wife_id):<8}  {(wife_name or 'NA'):<22}  {wife_age}")
+
+
 if __name__ == '__main__':
     individuals, families = parser('JonesThompsonFamily-1.ged')
     printIndividuals(individuals)
@@ -1353,3 +1449,5 @@ if __name__ == '__main__':
     print_living_married(individuals, families)
     print_living_single(individuals)
     print_multiple_births(individuals, families)
+    print_orphans(individuals, families)
+    print_large_age_differences(individuals, families)
