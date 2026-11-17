@@ -538,6 +538,8 @@ def validate_gedcom_lines(lines: Iterable[str]):
     errors.extend(check_no_marriage_to_descendants(individuals, families))
     errors.extend(check_siblings_should_not_marry(individuals, families))
     errors.extend(check_first_cousins_should_not_marry(individuals, families))
+    errors.extend(check_no_self_relationships(individuals, families))
+    errors.extend(check_no_ancestry_cycles(individuals, families))
     return individuals, families, errors
 
 #us 19
@@ -721,6 +723,60 @@ def check_no_marriage_to_descendants(individuals, families):
             errors.append(ValidationError(fam.get('line', 0), 'US14',
                 f"Family {displayId(fam_id)}: wife {displayId(wife)} is married "
                 f"to her descendant {displayId(husband)}"))
+    return errors
+
+# US39
+def check_no_self_relationships(individuals, families):
+    """An individual should not be their own spouse, child, or parent."""
+    errors = []
+    for fam_id, fam in families.items():
+        line_no = fam.get('line', 0)
+        husband, wife = fam.get('husband'), fam.get('wife')
+        if husband and husband == wife:
+            errors.append(ValidationError(line_no, 'US39',
+                f"Individual {displayId(husband)} is listed as their own spouse "
+                f"in family {displayId(fam_id)}"))
+        for spouse_id in {husband, wife} - {None}:
+            if spouse_id in fam.get('children', []):
+                errors.append(ValidationError(line_no, 'US39',
+                    f"Individual {displayId(spouse_id)} is listed as both parent and "
+                    f"child (their own parent) in family {displayId(fam_id)}"))
+    return errors
+
+
+def _families_by_parent(families):
+    """Map each spouse ID to the families where they are a parent."""
+    result = {}
+    for fam in families.values():
+        for _, spouse_id in _iter_spouses(fam):
+            result.setdefault(spouse_id, []).append(fam)
+    return result
+
+def _mixed_id_key(record_id):
+    """Sort key that works whether an ID has digits (@I1@) or not (@CHILD@)."""
+    key = idSortKey(record_id)
+    return (0, key, '') if isinstance(key, int) else (1, 0, key)
+
+# US40
+def check_no_ancestry_cycles(individuals, families):
+    """A person cannot be their own ancestor: report each loop in parent-child links once."""
+    by_parent = _families_by_parent(families)
+    errors = []
+    reported = set()
+    for person_id in sorted(individuals, key=_mixed_id_key):
+        if person_id in reported:
+            continue
+        descendants = _descendants(person_id, by_parent)
+        if person_id not in descendants:
+            continue
+        cycle = {pid for pid in descendants
+                 if person_id in _descendants(pid, by_parent)}
+        if len(cycle) < 2:
+            continue  # a person who is their own direct child is reported by US39
+        reported |= cycle
+        members = ', '.join(displayId(pid) for pid in sorted(cycle, key=_mixed_id_key))
+        errors.append(ValidationError(individuals[person_id].get('line', 0), 'US40',
+            f"Ancestry cycle: {members} are each their own ancestor"))
     return errors
 
 
@@ -1394,6 +1450,100 @@ def print_recent_survivors(individuals, families):
     print(f"  {'Deceased':<8}  {'ID':<6}  {'Name':<22}  {'Relationship'}")
     for dead_id, pid, name, rel in rows:
         print(f"  {displayId(dead_id):<8}  {displayId(pid):<6}  {(name or 'NA'):<22}  {rel}")
+# US29: List all orphaned children
+def list_orphans(individuals, families):
+    """Return a list of (id, name, age) for every living child younger than 18
+    whose mother and father are both dead."""
+    result = []
+    seen = set()
+    today = date.today()
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        husb_id = fam.get('husband')
+        wife_id = fam.get('wife')
+        if not husb_id or not wife_id:
+            continue
+        husb = individuals.get(husb_id)
+        wife = individuals.get(wife_id)
+        if husb is None or wife is None:
+            continue
+        # Both parents must be dead
+        if husb.get('death') is None or wife.get('death') is None:
+            continue
+        for child_id in fam.get('children', []):
+            if child_id in seen:
+                continue
+            child = individuals.get(child_id)
+            if child is None:
+                continue
+            # Child must be alive and younger than 18
+            if child.get('death') is not None:
+                continue
+            birth = parseGedDate(child.get('birth'))
+            if birth is None:
+                continue
+            age = ageYears(birth, today)
+            if age < 18:
+                seen.add(child_id)
+                result.append((child_id, child.get('name', 'NA'), age))
+    result.sort(key=lambda row: idSortKey(row[0]))
+    return result
+
+
+def print_orphans(individuals, families):
+    orphans = list_orphans(individuals, families)
+    print()
+    print('Orphaned Children (US29)')
+    print()
+    if not orphans:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Age'}")
+    for raw_id, name, age in orphans:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {age}")
+
+
+# US30: List couples with a large age difference at marriage
+def list_large_age_differences(individuals, families):
+    """Return (family_id, husband_id, husband_name, husband_age, wife_id,
+    wife_name, wife_age) for each couple married when the older spouse was
+    more than twice as old as the younger spouse."""
+    result = []
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        fam = families[fam_id]
+        husb_id = fam.get('husband')
+        wife_id = fam.get('wife')
+        husb = individuals.get(husb_id) if husb_id else None
+        wife = individuals.get(wife_id) if wife_id else None
+        married = parseGedDate(fam.get('married')) if fam.get('married') else None
+        if husb is None or wife is None or married is None:
+            continue
+        husb_birth = parseGedDate(husb.get('birth'))
+        wife_birth = parseGedDate(wife.get('birth'))
+        if husb_birth is None or wife_birth is None:
+            continue
+        husb_age = ageYears(husb_birth, married)
+        wife_age = ageYears(wife_birth, married)
+        if husb_age < 0 or wife_age < 0:
+            continue
+        # Older spouse was more than twice as old as the younger spouse
+        if max(husb_age, wife_age) > 2 * min(husb_age, wife_age):
+            result.append((fam_id, husb_id, husb.get('name', 'NA'), husb_age,
+                           wife_id, wife.get('name', 'NA'), wife_age))
+    return result
+
+
+def print_large_age_differences(individuals, families):
+    couples = list_large_age_differences(individuals, families)
+    print()
+    print('Large Age Differences (US30)')
+    print()
+    if not couples:
+        print('  None')
+        return
+    print(f"  {'Family':<6}  {'Husband ID':<10}  {'Husband Name':<22}  {'H Age':<5}  {'Wife ID':<8}  {'Wife Name':<22}  {'W Age'}")
+    for fam_id, husb_id, husb_name, husb_age, wife_id, wife_name, wife_age in couples:
+        print(f"  {displayId(fam_id):<6}  {displayId(husb_id):<10}  {(husb_name or 'NA'):<22}  {husb_age:<5}  {displayId(wife_id):<8}  {(wife_name or 'NA'):<22}  {wife_age}")
 
 
 if __name__ == '__main__':
@@ -1407,3 +1557,5 @@ if __name__ == '__main__':
     print_recent_births(individuals)
     print_recent_deaths(individuals)
     print_recent_survivors(individuals, families)
+    print_orphans(individuals, families)
+    print_large_age_differences(individuals, families)
