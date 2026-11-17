@@ -1345,6 +1345,111 @@ def print_multiple_births(individuals, families):
         print(f"  {displayId(fam_id):<6}  {formatGedDate(birth_raw):<12}  {children_str}")
 
 
+# US31: List people born in the last 30 days
+def _within_last_30_days(raw, today):
+    d = parseGedDate(raw)
+    return d is not None and 0 <= (today - d).days <= 30
+
+
+def list_recent_births(individuals, today=None):
+    """Return list of (id, name, birth_date) for people born in the last 30 days."""
+    today = today or date.today()
+    result = []
+    for raw_id in sorted(individuals.keys(), key=idSortKey):
+        p = individuals[raw_id]
+        if _within_last_30_days(p.get('birth'), today):
+            result.append((raw_id, p.get('name'), parseGedDate(p.get('birth'))))
+    return result
+
+
+# US32: List people who died in the last 30 days
+def list_recent_deaths(individuals, today=None):
+    """Return list of (id, name, death_date) for people who died in the last 30 days."""
+    today = today or date.today()
+    result = []
+    for raw_id in sorted(individuals.keys(), key=idSortKey):
+        p = individuals[raw_id]
+        if _within_last_30_days(p.get('death'), today):
+            result.append((raw_id, p.get('name'), parseGedDate(p.get('death'))))
+    return result
+
+
+# US33: List living spouses and descendants of people who died in the last 30 days
+def list_recent_survivors(individuals, families, today=None):
+    """Return list of (deceased_id, survivor_id, survivor_name, relationship)."""
+    today = today or date.today()
+    result = []
+    for dead_id, _, _ in list_recent_deaths(individuals, today):
+        dead = individuals[dead_id]
+        seen = set()
+
+        def add(pid, rel):
+            p = individuals.get(pid)
+            if p is None or p.get('death') is not None or pid in seen or pid == dead_id:
+                return
+            seen.add(pid)
+            result.append((dead_id, pid, p.get('name'), rel))
+
+        descendants = []
+        visited = set()
+        stack = [dead_id]
+        while stack:
+            cur = stack.pop()
+            for fam_id in individuals.get(cur, {}).get('fams', []):
+                fam = families.get(fam_id)
+                if fam is None:
+                    continue
+                if cur == dead_id:
+                    spouse = fam.get('wife') if fam.get('husband') == cur else fam.get('husband')
+                    if spouse:
+                        add(spouse, 'Spouse')
+                for child in fam.get('children', []):
+                    if child not in visited:
+                        visited.add(child)
+                        descendants.append(child)
+                        stack.append(child)
+        for child in sorted(descendants, key=idSortKey):
+            add(child, 'Descendant')
+    return result
+
+
+def print_recent_births(individuals):
+    rows = list_recent_births(individuals)
+    print()
+    print('Recent Births (US31)')
+    print()
+    if not rows:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Birthday'}")
+    for raw_id, name, d in rows:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {d.isoformat()}")
+
+
+def print_recent_deaths(individuals):
+    rows = list_recent_deaths(individuals)
+    print()
+    print('Recent Deaths (US32)')
+    print()
+    if not rows:
+        print('  None')
+        return
+    print(f"  {'ID':<6}  {'Name':<22}  {'Death'}")
+    for raw_id, name, d in rows:
+        print(f"  {displayId(raw_id):<6}  {(name or 'NA'):<22}  {d.isoformat()}")
+
+
+def print_recent_survivors(individuals, families):
+    rows = list_recent_survivors(individuals, families)
+    print()
+    print('Recent Survivors (US33)')
+    print()
+    if not rows:
+        print('  None')
+        return
+    print(f"  {'Deceased':<8}  {'ID':<6}  {'Name':<22}  {'Relationship'}")
+    for dead_id, pid, name, rel in rows:
+        print(f"  {displayId(dead_id):<8}  {displayId(pid):<6}  {(name or 'NA'):<22}  {rel}")
 # US29: List all orphaned children
 def list_orphans(individuals, families):
     """Return a list of (id, name, age) for every living child younger than 18
@@ -1449,6 +1554,9 @@ if __name__ == '__main__':
     print_living_married(individuals, families)
     print_living_single(individuals)
     print_multiple_births(individuals, families)
+    print_recent_births(individuals)
+    print_recent_deaths(individuals)
+    print_recent_survivors(individuals, families)
     print_orphans(individuals, families)
     print_large_age_differences(individuals, families)
 
