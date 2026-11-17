@@ -1,0 +1,9 @@
+Sprint 4 Acceptance Test Results
+Test date: 2026-11-16
+
+US34 - Upcoming Birthdays
+@I901@ Alice /Birthday/ 2026-11-20
+@I904@ David /Birthday/ 2026-12-10
+
+US35 - Upcoming Anniversaries
+@F901@ John /Anniversary/ Jane /Anniversary/ 2026-11-25

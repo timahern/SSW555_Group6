@@ -1451,3 +1451,136 @@ if __name__ == '__main__':
     print_multiple_births(individuals, families)
     print_orphans(individuals, families)
     print_large_age_differences(individuals, families)
+
+# US34: List upcoming birthdays
+def list_upcoming_birthdays(individuals, today=None):
+    """Return living individuals with birthdays in the next 30 days."""
+    from datetime import timedelta
+
+    if today is None:
+        today = date.today()
+
+    upcoming = []
+    end_date = today + timedelta(days=30)
+
+    for raw_id in sorted(individuals.keys(), key=idSortKey):
+        person = individuals[raw_id]
+
+        if person.get('death') is not None:
+            continue
+
+        birth = parseGedDate(person.get('birth'))
+        if birth is None:
+            continue
+
+        for year in (today.year, today.year + 1):
+            try:
+                birthday = date(year, birth.month, birth.day)
+            except ValueError:
+                continue
+
+            if today <= birthday <= end_date:
+                upcoming.append((
+                    raw_id,
+                    person.get('name') or 'NA',
+                    birthday
+                ))
+                break
+
+    return sorted(upcoming, key=lambda item: (item[2], idSortKey(item[0])))
+
+
+def print_upcoming_birthdays(individuals):
+    birthdays = list_upcoming_birthdays(individuals)
+
+    print()
+    print('Upcoming Birthdays (US34)')
+    print()
+
+    if not birthdays:
+        print('  None')
+        return
+
+    print(f"  {'ID':<6}  {'Name':<22}  {'Birthday'}")
+
+    for raw_id, name, birthday in birthdays:
+        print(
+            f"  {displayId(raw_id):<6}  "
+            f"{name:<22}  {birthday.isoformat()}"
+        )
+
+
+# US35: List upcoming anniversaries
+def list_upcoming_anniversaries(individuals, families, today=None):
+    """Return living married couples with anniversaries in the next 30 days."""
+    from datetime import timedelta
+
+    if today is None:
+        today = date.today()
+
+    upcoming = []
+    end_date = today + timedelta(days=30)
+
+    for fam_id in sorted(families.keys(), key=idSortKey):
+        family = families[fam_id]
+
+        # Exclude divorced families
+        if family.get('divorced') is not None:
+            continue
+
+        marriage = parseGedDate(family.get('married'))
+        if marriage is None:
+            continue
+
+        husband_id = family.get('husband')
+        wife_id = family.get('wife')
+
+        husband = individuals.get(husband_id)
+        wife = individuals.get(wife_id)
+
+        # Both spouses must exist and be alive
+        if husband is None or wife is None:
+            continue
+
+        if husband.get('death') is not None or wife.get('death') is not None:
+            continue
+
+        for year in (today.year, today.year + 1):
+            try:
+                anniversary = date(year, marriage.month, marriage.day)
+            except ValueError:
+                continue
+
+            if today <= anniversary <= end_date:
+                upcoming.append((
+                    fam_id,
+                    husband.get('name') or 'NA',
+                    wife.get('name') or 'NA',
+                    anniversary
+                ))
+                break
+
+    return sorted(upcoming, key=lambda item: (item[3], idSortKey(item[0])))
+
+
+def print_upcoming_anniversaries(individuals, families):
+    anniversaries = list_upcoming_anniversaries(individuals, families)
+
+    print()
+    print('Upcoming Anniversaries (US35)')
+    print()
+
+    if not anniversaries:
+        print('  None')
+        return
+
+    print(f"  {'Family':<8}  {'Husband':<22}  {'Wife':<22}  {'Anniversary'}")
+
+    for fam_id, husband, wife, anniversary in anniversaries:
+        print(
+            f"  {displayId(fam_id):<8}  "
+            f"{husband:<22}  "
+            f"{wife:<22}  "
+            f"{anniversary.isoformat()}"
+        )
+
